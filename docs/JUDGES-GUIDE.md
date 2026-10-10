@@ -95,11 +95,11 @@ A repair must pass a restricted-definition check, replay of encrypted known-good
 
 ### 6. Does the project use AI?
 
-The demonstrated mode is deterministic: rules and observed evidence drive repair decisions. An optional LLM can assist with explaining an existing allowed candidate, but that integration has not been verified against an external endpoint. The gateway does not execute model-generated JavaScript or trust it to override safety checks.
+The primary detector uses rules and observed evidence. With a server-side OpenAI key, an LLM analyzes masked incidents, explains them in English/Hinglish, and corroborates an existing allowed candidate or recommends review. Valid review can hold deployment, but cannot override independent safety checks. Model outages or invalid output use explicit deterministic fallback. Real-model calls require credentials; local tests use simulated completions. The gateway never executes generated JavaScript. See [LLM-GUIDE.md](LLM-GUIDE.md).
 
 ### 7. Is this a real working system or just a simulated animation?
 
-The external provider is deliberately simulated, but it runs an actual HTTP server. The gateway makes real requests, MongoDB persists evidence, and the React screens use live backend data. Recorded local verification includes 31 backend/safety tests, two browser tests, and the four-scenario HTTP demonstration. See VERIFIED.md for the test record and limits.
+The external provider is deliberately simulated, but it runs an actual HTTP server. The gateway makes real requests, MongoDB persists evidence, and the React screens use live backend data. Recorded local verification includes 62 backend/safety tests, the original two browser tests and HTTP demonstration, plus two isolated LLM dashboard fixture tests. These LLM tests do not prove a real OpenAI request. See VERIFIED.md for the test record and limits.
 
 ### 8. What is a Repair Passport, and can a repair be undone?
 

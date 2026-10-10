@@ -2,7 +2,7 @@
 
 API Phoenix is a MERN development demo of an API gateway that observes real upstream HTTP traffic, detects contract drift, and activates restricted compatibility adapters only after validation. An independent Express provider supplies customer, pricing, and shipping APIs; the React dashboard shows MongoDB evidence and repair decisions; the React ShopFlow client retrieves service data through the gateway.
 
-The core stack is Node.js, Express, MongoDB/Mongoose, React/Vite, Tailwind CSS, Socket.IO, Zod, and React Flow. An optional chat-completion service can explain an existing repair candidate. Deterministic detection and repair work without an LLM.
+The core stack is Node.js, Express, MongoDB/Mongoose, React/Vite, Tailwind CSS, Socket.IO, Zod, and React Flow. An OpenAI LLM analyst can explain incidents in English/Hinglish, corroborate restricted repair candidates, or recommend operator review. Independent validation remains mandatory; deterministic detection and repair work without an LLM. See [the LLM setup and judge guide](docs/LLM-GUIDE.md) to enable real model calls.
 
 | Workspace | Role | Default URL |
 | --- | --- | --- |
@@ -75,6 +75,7 @@ Run scripts from the repository root:
 | `npm run build` | Builds both React applications; console output is `apps/console/dist` |
 | `npm run test` | Runs Vitest tests, including temporary real MongoDB and HTTP integration traffic |
 | `npm run test:e2e` | Runs Playwright against its test server; requires installed browser binaries |
+| `npm run test:llm-ui` | Isolated LLM dashboard fixture tests on port 5183; no OpenAI calls or demo resets |
 | `npm run demo` | Drives the four scenarios against already running backends over HTTP |
 
 The isolated backend scripts load their own workspace `.env`; shell values take precedence. The root `.env` in the Docker instructions is for Compose and is not automatically loaded by these backend scripts. Frontend `.env.example` files describe public Vite settings; `VITE_GATEWAY_URL` must be the URL reachable by the **browser**. Vite reads it at startup or embeds it at build time; restart or rebuild after changing it.
@@ -93,7 +94,9 @@ The isolated backend scripts load their own workspace `.env`; shell values take 
 | `UPSTREAM_TIMEOUT_MS` | Isolated gateway | Upstream request timeout; default 4000 ms |
 | `REPAIR_DELAY_MS` | Isolated gateway | Delay between repair stages; default 700 ms |
 | `OBSERVATION_TTL_DAYS` | Isolated gateway | MongoDB observation retention; default 7 days |
-| `LLM_URL`, `LLM_MODEL`, `LLM_API_KEY` | Gateway | Optional chat-completion endpoint, model, and server-side credential |
+| `OPENAI_API_KEY`, `LLM_MODEL` | Gateway | Server-side OpenAI key; model defaults to `gpt-4o-mini` |
+| `LLM_ENABLED`, `LLM_TIMEOUT_MS` | Gateway | Set enabled to `false` to opt out; model timeout defaults to 8000 ms |
+| `LLM_URL`, `LLM_API_KEY` | Gateway | Optional full chat-completion endpoint/key overrides; HTTPS or loopback HTTP only |
 | `VITE_GATEWAY_URL` | Console / ShopFlow | Public gateway URL, for example `http://192.168.1.102:8000` |
 | `VITE_DASHBOARD_URL`, `VITE_SHOPFLOW_URL` | Console | Optional public URLs for links to the dashboard on B and ShopFlow on C; set before building A's panel |
 
@@ -122,7 +125,7 @@ Detection, proposal, validation, and deployment are backend stages visible over 
 
 Rollback restores the previous adapter, if present, and holds the same drift from automatic redeployment. An operator can explicitly revalidate the incident after reviewing it. To begin a completely fresh demo manually, first restore the provider to normal, let running validations finish, reset gateway state through Settings, then learn healthy baselines again. Gateway reset deletes its observation and repair history; provider reset only changes provider behavior.
 
-The optional LLM URL is the full chat-completion endpoint. The gateway sends masked incident data and an existing allowlisted candidate; a returned candidate must match that deterministic candidate before its explanation can be used. LLM output is advisory and is never executed as JavaScript. No credentials are needed for the four deterministic scenarios.
+The LLM integration defaults to OpenAI when a server-side key is present. It sends masked incident data, schema/evidence, impacted workflows, and an existing allowlisted candidate (or null for unsafe drift). Strict structured output and independent Zod checks accept only that exact candidate or a valid abstention. An accepted candidate still needs every independent safety check; a valid operator-review recommendation holds deployment. Invalid output or model outages explicitly fall back to deterministic validation, while unsupported drift remains blocked. Model guidance is recorded separately from executed tests in incidents and passports; generated JavaScript is never executed. No credentials are needed for the four deterministic scenarios. Follow [docs/LLM-GUIDE.md](docs/LLM-GUIDE.md) for configuration, demonstration, and limitations.
 
 ## Tests
 
@@ -181,4 +184,4 @@ docker compose down
 
 This is a development demonstration with one gateway process. In-process repair jobs and locks do not provide cluster coordination. The provider is an independent simulated API, not a production external vendor, and checkout is a verified preview with no payment or order placement. Repairs cover the explicit allowlisted demo transformations; changed semantics, missing required fields, and other unsupported changes can remain blocked.
 
-HTTP LAN access and the private, unauthenticated development MongoDB setup assume a trusted demo network. Production authentication, TLS, database access controls, broader PII policies, and operational scaling require further work. Three physical laptops cannot be verified in this workspace. Optional LLM integration has not been verified without endpoint credentials. Docker execution also requires a working Docker engine; static file checks alone do not establish a running container deployment.
+HTTP LAN access and the private, unauthenticated development MongoDB setup assume a trusted demo network. Production authentication, TLS, database access controls, broader PII policies, and operational scaling require further work. Three physical laptops cannot be verified in this workspace. LLM transport, safety/fallback behaviour, and dashboard rendering are tested with simulated responses, not a real OpenAI model without credentials. API access, real-model quality, costs, and live latency require separate verification. Docker execution also requires a working Docker engine; static file checks alone do not establish a running container deployment.

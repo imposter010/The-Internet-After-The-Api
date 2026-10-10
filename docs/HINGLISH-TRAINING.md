@@ -224,13 +224,13 @@ Provider aur gateway ke separate admin tokens hain; browser admin tokens session
 
 ### 50. Testing hui hai? Proof kya hai?
 
-Recorded local verification mein 31 backend/safety tests, 2 browser tests, frontend builds, aur four-scenario HTTP demo pass hue. Vitest backend/safety suites aur Playwright browser verification ke liye use hote hain. Tests actual HTTP aur actual MongoDB use karte hain. Detailed record VERIFIED.md mein hai. Yeh production reliability ya har physical network setup ka proof nahi hai.
+Latest local verification mein 62 backend/safety tests aur 2 isolated LLM dashboard fixture tests pass hue. Pehle 2 full browser tests aur four-scenario HTTP demo bhi verified hue the. Vitest backend/safety suites aur Playwright browser verification ke liye use hote hain. Backend integration actual HTTP aur actual MongoDB use karti hai, lekin model completions simulated hain, real OpenAI call nahi. Detailed record VERIFIED.md mein hai. Yeh production reliability ya har physical network setup ka proof nahi hai.
 
 ## Level 6: Advanced judge questions — Questions 51-60
 
 ### 51. Kya yeh AI-based system hai?
 
-Current demonstrated mode deterministic hai: defined rules aur observed evidence se decision hota hai. LLM ka matlab Large Language Model, ya text samajhne/generate karne wala AI model. Optional LLM existing allowed candidate ko explain karne mein help kar sakta hai, lekin allowed repair expand ya safety bypass nahi kar sakta. External LLM integration verified nahi hai; generated JavaScript execute nahi hota.
+Primary detection abhi rules aur observed evidence se hoti hai. LLM ka matlab Large Language Model, ya text analyze/generate karne wala AI model. OpenAI key configure karne par model masked incidents analyze karta hai, English/Hinglish explanation deta hai, aur exact allowed candidate ko corroborate ya review recommend karta hai. Valid review deployment hold kar sakti hai, lekin safety checks bypass nahi kar sakti. Invalid output/outage mein explicit deterministic fallback hota hai; generated JavaScript execute nahi hota. Local simulated-completion tests verified hain, real OpenAI call key ke bina verified nahi hai. Setup aur extra Q&A ke liye [LLM-GUIDE.md](LLM-GUIDE.md) dekho.
 
 ### 52. Project ka distinctive contribution kya hai?
 

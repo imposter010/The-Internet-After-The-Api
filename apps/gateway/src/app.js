@@ -21,7 +21,8 @@ export function createGateway({ store, providerUrl, token, dashboardOrigins = ['
   app.use(async (req, res, next) => { await ready; next(); });
   app.get('/health', corsFor([...dashboardOrigins, ...clientOrigins]), (req, res) => res.status(store.connection.readyState === 1 ? 200 : 503).json({ service: 'api-phoenix', status: store.connection.readyState === 1 ? 'ok' : 'database_unavailable', persistence: 'mongodb' }));
   app.use('/admin', corsFor(dashboardOrigins), auth);
-  app.get('/admin/snapshot', async (req, res) => res.json({ ...await store.snapshot(), aiMode: llm.url && llm.model ? 'llm-assisted' : 'deterministic' }));
+  const snapshot = async () => ({ ...await store.snapshot(), aiMode: engine.analyst.describe().configured ? 'llm-assisted' : 'deterministic', llm: engine.analyst.describe() });
+  app.get('/admin/snapshot', async (req, res) => res.json(await snapshot()));
   app.post('/admin/probe', async (req, res) => {
     const results = [];
     for (let round = 0; round < 3; round++) for (const endpoint of Object.keys(ENDPOINTS)) results.push({ endpointId: endpoint, ...await engine.get(endpoint) });
@@ -60,7 +61,7 @@ export function createGateway({ store, providerUrl, token, dashboardOrigins = ['
     next();
   });
   io.on('connection', async socket => {
-    try { socket.emit('snapshot', { ...await store.snapshot(), aiMode: llm.url && llm.model ? 'llm-assisted' : 'deterministic' }); }
+    try { socket.emit('snapshot', await snapshot()); }
     catch { socket.emit('sync:error', { message: 'Persistent records are unavailable. Reconnect to synchronize.' }); }
   });
   const close = async () => { await engine.close(); await new Promise(resolve => io.close(resolve)); if (server.listening) await new Promise(resolve => server.close(resolve)); };

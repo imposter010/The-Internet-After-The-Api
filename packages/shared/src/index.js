@@ -27,7 +27,7 @@ export const ADAPTER_SCHEMA = z.discriminatedUnion('type', [
   z.object({ type: z.literal('retry'), methods: z.tuple([z.literal('GET')]), maxAttempts: z.number().int().min(2).max(3), maxDelayMs: z.number().int().min(0).max(3000) }).strict(),
 ]);
 
-export const EVENT_TYPES = ['api:observed', 'api:baseline', 'drift:detected', 'impact:analyzed', 'repair:proposed', 'validation:started', 'validation:completed', 'repair:deployed', 'repair:blocked', 'repair:rolled-back', 'api:recovered'];
+export const EVENT_TYPES = ['api:observed', 'api:baseline', 'drift:detected', 'impact:analyzed', 'repair:proposed', 'ai:analysis-started', 'ai:analysis-completed', 'ai:analysis-fallback', 'validation:started', 'validation:completed', 'repair:deployed', 'repair:blocked', 'repair:rolled-back', 'api:recovered'];
 export const EVENT_SCHEMA = z.object({ id: z.string(), type: z.string(), at: z.string(), serviceId: z.string(), incidentId: z.string().nullable(), title: z.string(), detail: z.string(), severity: z.enum(['info', 'success', 'warning', 'danger']) });
 
 export function schemaOf(value) {

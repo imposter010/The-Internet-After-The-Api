@@ -8,6 +8,7 @@ import { createGateway } from '../apps/gateway/src/app.js';
 import { createStore } from '../apps/gateway/src/store.js';
 import { ENDPOINTS } from '@phoenix/shared';
 import { mongoBinary } from '../scripts/mongo-config.mjs';
+import { DriftAnalyst } from '../apps/gateway/src/llm.js';
 
 const providerToken = 'integration-provider-token-0001';
 const gatewayToken = 'integration-gateway-token-0002';
@@ -260,5 +261,119 @@ describe('authentication, isolation, and live synchronization', () => {
     await gateway.engine.waitForIdle();
     await gatewayGet('customer').expect(200);
     expect((await snapshot()).body.passports[0].decision).toBe('activated');
+  });
+});
+
+// Real local HTTP transport with simulated completions; these are not real-model evals.
+async function withAnalyst(output, callback, status = 200) {
+  const calls = [];
+  const server = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const context = JSON.parse(body.messages[1].content);
+    calls.push({ body, context, headers: req.headers });
+    res.writeHead(status, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(status === 200 ? { choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(output(context)) } }] } : { error: 'simulated-model-outage' }));
+  });
+  await new Promise(done => server.listen(0, '127.0.0.1', done));
+  const original = gateway.engine.analyst;
+  gateway.engine.analyst = new DriftAnalyst({ url: `http://127.0.0.1:${server.address().port}/v1/chat/completions`, model: 'simulated-model', key: 'test-llm-private-key', timeoutMs: 1000 });
+  try { await callback(calls); }
+  finally {
+    await gateway.engine.waitForIdle();
+    gateway.engine.analyst = original;
+    server.closeAllConnections();
+    await new Promise(done => server.close(done));
+  }
+}
+const modelAnalysis = context => ({ explanation: 'Observed evidence supports this restricted candidate; live validation is still required.',
+  hinglishExplanation: 'Observed change ke liye allowed repair mila hai; activate karne se pehle tests zaroori hain.',
+  recommendedAction: context.evidencedCandidate ? 'apply_candidate' : 'manual_review', risk: context.evidencedCandidate ? 'low' : 'high',
+  adapter: context.evidencedCandidate, verificationNotes: ['Confirm the client contract and checkout requirements.'] });
+
+describe('LLM-assisted repair with real local HTTP and MongoDB', () => {
+  it('records model guidance and activates only after independent validation', async () => {
+    await warm();
+    await withAnalyst(modelAnalysis, async calls => {
+      await scenario('customer', 'rename'); await gatewayGet('customer').expect(503);
+      await gateway.engine.waitForIdle();
+      await gatewayGet('customer').expect(200);
+      const { body } = await snapshot();
+      expect(body.aiMode).toBe('llm-assisted');
+      expect(body.llm).toMatchObject({ configured: true, status: 'completed', model: 'simulated-model' });
+      expect(body.incidents[0].aiAnalysis.candidateAccepted).toBe(true);
+      expect(body.passports[0]).toMatchObject({ decision: 'activated', aiAnalysis: { status: 'completed' } });
+      expect(body.passports[0].tests).toHaveLength(7);
+      expect(body.passports[0].tests.every(test => test.passed)).toBe(true);
+      expect(body.proposals[0].aiExplanation).toContain('Observed evidence');
+      expect(calls).toHaveLength(1);
+      expect(calls[0].headers.authorization).toBe('Bearer test-llm-private-key');
+      expect(JSON.stringify(calls[0].context)).not.toMatch(/Rahul Sharma|rahul.sharma@example.com/);
+      expect(JSON.stringify(body)).not.toContain('test-llm-private-key');
+    });
+  });
+
+  it('honors a valid model abstention without deploying an otherwise eligible adapter', async () => {
+    await warm();
+    await withAnalyst(context => ({ ...modelAnalysis(context), recommendedAction: 'manual_review', risk: 'unknown', adapter: null }), async () => {
+      await scenario('customer', 'rename'); await gatewayGet('customer'); await gateway.engine.waitForIdle();
+      const { body } = await snapshot();
+      expect(body.adapters).toHaveLength(0);
+      expect(body.passports[0].decision).toBe('blocked');
+      expect(body.passports[0].tests.find(test => test.name === 'LLM candidate review').passed).toBe(false);
+      await gatewayGet('customer').expect(503);
+    });
+  });
+
+  it('rejects a hallucinated adapter and uses only the evidenced deterministic fallback', async () => {
+    await warm();
+    await withAnalyst(context => ({ ...modelAnalysis(context), adapter: { type: 'alias', source: 'email', target: 'name' } }), async () => {
+      await scenario('customer', 'rename'); await gatewayGet('customer'); await gateway.engine.waitForIdle();
+      const { body } = await snapshot();
+      expect(body.passports[0]).toMatchObject({ decision: 'activated', aiAnalysis: { status: 'rejected', fallbackUsed: true } });
+      expect(body.adapters[0].definition).toEqual({ type: 'alias', source: 'display_name', target: 'name' });
+      expect(body.passports[0].tests.every(test => test.passed)).toBe(true);
+    });
+  });
+
+  it('falls back on model outages without inventing an AI explanation', async () => {
+    await warm();
+    await withAnalyst(modelAnalysis, async () => {
+      await scenario('shipping', 'unit'); await gatewayGet('shipping'); await gateway.engine.waitForIdle();
+      await gatewayGet('shipping').expect(200);
+      const { body } = await snapshot();
+      expect(body.llm.status).toBe('unavailable');
+      expect(body.passports[0]).toMatchObject({ decision: 'activated', aiAnalysis: { status: 'unavailable', reason: 'http_503', fallbackUsed: true } });
+      expect(body.proposals[0].aiExplanation).toBeNull();
+    }, 503);
+  });
+
+  it('analyzes unsafe pricing once and keeps checkout and approval blocked', async () => {
+    await warm();
+    await withAnalyst(modelAnalysis, async calls => {
+      await scenario('pricing', 'semantic');
+      const blocked = await gatewayGet('pricing').expect(409); await gateway.engine.waitForIdle();
+      await gatewayGet('pricing').expect(409);
+      await authGateway().post('/api/checkout').send({ quantity: 1 }).expect(409);
+      await authGateway().post(`/admin/incidents/${blocked.body.incidentId}/approve`).set('Authorization', `Bearer ${gatewayToken}`).send({}).expect(422);
+      const { body } = await snapshot();
+      expect(calls).toHaveLength(1);
+      expect(calls[0].context).toMatchObject({ automaticRepairEligible: false, evidencedCandidate: null });
+      expect(body.passports[0]).toMatchObject({ decision: 'blocked', aiAnalysis: { status: 'completed', adapter: null, recommendedAction: 'manual_review' } });
+      expect(body.adapters).toHaveLength(0);
+    });
+  });
+
+  it('never lets model corroboration override a failing dependent workflow', async () => {
+    await warm();
+    await withAnalyst(modelAnalysis, async () => {
+      await scenario('pricing', 'semantic'); await scenario('customer', 'rename');
+      await gatewayGet('customer'); await gateway.engine.waitForIdle();
+      const { body } = await snapshot();
+      expect(body.adapters).toHaveLength(0);
+      expect(body.passports[0]).toMatchObject({ decision: 'blocked', aiAnalysis: { candidateAccepted: true } });
+      expect(body.passports[0].tests.find(test => test.name.includes('workflows')).passed).toBe(false);
+    });
   });
 });

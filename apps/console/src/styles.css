@@ -235,6 +235,11 @@ tbody tr:hover { background: #202426; }
 .impact-list > span { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #374047; padding: 5px 7px; border-radius: 6px; color: #a5b1b8; font-size: 9px; }
 .impact-list .badge { font-size: 8px; }
 .proposal-detail { padding-bottom: 18px; }
+.ai-analysis { padding: 16px 0; font-size: 12px; color: #a7b4bc; line-height: 1.8; min-width: 0; overflow-wrap: anywhere; }
+.ai-analysis h3 { font-size: 12px; color: #d1dfd9; margin: 16px 0 8px; }
+.ai-analysis p { margin: 10px 0; white-space: pre-wrap; }
+.ai-analysis ul { padding-left: 20px; }
+.ai-settings { padding: 0 21px 25px; }
 .proposal-detail > p { font-size: 12px; color: #a7b4bc; line-height: 1.8; margin-bottom: 15px; }
 .test-row { display: flex; align-items: flex-start; gap: 10px; margin-top: 14px; padding: 12px 0; border-top: 1px solid #313c44; }
 .test-row strong { font-size: 11px; }

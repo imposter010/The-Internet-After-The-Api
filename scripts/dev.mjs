@@ -9,6 +9,7 @@ import { createServer as createVite } from 'vite';
 import { createProvider } from '../apps/provider/src/app.js';
 import { createGateway } from '../apps/gateway/src/app.js';
 import { createStore } from '../apps/gateway/src/store.js';
+import { llmFromEnv } from '../apps/gateway/src/llm.js';
 import { mongoBinary } from './mongo-config.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -47,7 +48,7 @@ const host = process.env.HOST || '127.0.0.1';
 const store = await createStore(uri, gatewayEnv.GATEWAY_DATA_KEY || secrets.dataKey);
 const provider = createProvider({ token: providerToken, origins: (providerEnv.PROVIDER_CONSOLE_ORIGINS || 'http://localhost:8001,http://127.0.0.1:8001,http://localhost:5173,http://127.0.0.1:5173').split(',') });
 const providerServer = await new Promise(done => { const server = provider.app.listen(8001, host, () => done(server)); });
-const gateway = createGateway({ store, token: gatewayToken, providerUrl: gatewayEnv.PROVIDER_URL || 'http://127.0.0.1:8001', dashboardOrigins: (gatewayEnv.DASHBOARD_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173').split(','), clientOrigins: (gatewayEnv.CLIENT_ORIGINS || 'http://localhost:5174,http://127.0.0.1:5174').split(','), llm: { url: gatewayEnv.LLM_URL, key: gatewayEnv.LLM_API_KEY, model: gatewayEnv.LLM_MODEL } });
+const gateway = createGateway({ store, token: gatewayToken, providerUrl: gatewayEnv.PROVIDER_URL || 'http://127.0.0.1:8001', dashboardOrigins: (gatewayEnv.DASHBOARD_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173').split(','), clientOrigins: (gatewayEnv.CLIENT_ORIGINS || 'http://localhost:5174,http://127.0.0.1:5174').split(','), llm: llmFromEnv(gatewayEnv) });
 await new Promise(done => gateway.server.listen(8000, host, done));
 const dashboard = await createVite({ root: resolve(root, 'apps/console'), server: { host, port: 5173, strictPort: true } });
 const shopflow = await createVite({ root: resolve(root, 'apps/shopflow'), server: { host, port: 5174, strictPort: true } });

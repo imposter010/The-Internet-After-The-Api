@@ -4,6 +4,7 @@ import { useAdminFeed, useConnection } from './api.js';
 import { Adapters, Baselines, DependencyGraph, Events, IncidentDetail, IncidentList, LatencyChart, Metrics, Observations, PassportDetail, Passports, ServiceList } from './Dashboard.jsx';
 import { Badge, Button, ConnectionForm, humanTime, Modal, Panel } from './components.jsx';
 import Provider from './Provider.jsx';
+import { LlmSettings } from './AI.jsx';
 
 const navigation = [
   ['overview', 'Overview', LayoutDashboard],
@@ -74,7 +75,7 @@ function Console() {
     {page === 'repairs' && <><Passports data={feed.data} onSelect={setPassportId} /><Adapters data={feed.data} onRollback={setRollback} /></>}
     {page === 'observations' && <><LatencyChart data={feed.data} /><Observations data={feed.data} /><Baselines data={feed.data} /></>}
     {page === 'activity' && <Events data={feed.data} />}
-    {page === 'settings' && <div className="settings-layout"><Panel title="Gateway connection" eyebrow="YOUR LOCAL NETWORK"><ConnectionForm key={`${connection.url}:${!!connection.token}`} connection={connection} configure={configure} label="Gateway" /></Panel><Panel title="Reset gateway state" eyebrow="ADMINISTRATION"><div className="settings-reset"><div className="reset-icon"><Trash2 size={24} /></div><h3>Start a new observation session</h3><p>Remove the gateway’s learned baselines, incidents, adapters, events, and repair history. Provider scenarios are controlled separately.</p><Button className="button-danger" disabled={!connection.token || !!pending} onClick={() => setResetOpen(true)}><Trash2 size={15} />Reset gateway</Button></div></Panel></div>}
+    {page === 'settings' && <div className="settings-layout"><Panel title="Gateway connection" eyebrow="YOUR LOCAL NETWORK"><ConnectionForm key={`${connection.url}:${!!connection.token}`} connection={connection} configure={configure} label="Gateway" /></Panel><LlmSettings data={feed.data} /><Panel title="Reset gateway state" eyebrow="ADMINISTRATION"><div className="settings-reset"><div className="reset-icon"><Trash2 size={24} /></div><h3>Start a new observation session</h3><p>Remove the gateway’s learned baselines, incidents, adapters, events, and repair history. Provider scenarios are controlled separately.</p><Button className="button-danger" disabled={!connection.token || !!pending} onClick={() => setResetOpen(true)}><Trash2 size={15} />Reset gateway</Button></div></Panel></div>}
     {showConnection && <Modal title="Gateway connection" onClose={() => setShowConnection(false)}><ConnectionForm connection={connection} configure={configure} label="Gateway" onDone={() => setShowConnection(false)} /></Modal>}
     {incident && <IncidentDetail incident={incident} data={feed.data} onClose={() => setIncidentId(null)} pending={pending === incident.id} onApprove={(id) => run(id, `/admin/incidents/${encodeURIComponent(id)}/approve`, undefined, 'The gateway revalidated the repair proposal. See the incident and validation results for its decision.')} />}
     {passport && <PassportDetail passport={passport} onClose={() => setPassportId(null)} />}

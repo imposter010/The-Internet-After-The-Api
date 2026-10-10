@@ -31,3 +31,21 @@ The regression suite additionally verifies:
 Browser verification exercised the provider's scenario controls, the client's stale state and disabled checkout, visible recovery, dashboard passport inspection, and mobile price blocking followed by upstream restoration. No uncaught page errors were observed, and ShopFlow made no requests to the provider. Desktop and mobile screenshots were inspected and remain locally under `.cache/screenshots/`; they are excluded from Git.
 
 Dockerfiles and Compose configuration are supplied, but container execution was not tested because Docker is not installed here. Three physical laptops and Wi-Fi connectivity require the [LAN deployment check](LAN.md). Optional LLM requests were not exercised against an external model endpoint without credentials. Checkout is a preview; payments and order processing are outside this demo.
+
+## OpenAI analyst update — 10 October 2026
+
+The OpenAI Docs guidance informed strict structured-output requests, refusal/incomplete-output handling, and the completion-token budget. The previous minimal explanation hook has been replaced with a drift analyst, independent output validation, candidate corroboration/abstention, English/Hinglish guidance, visible fallback status, and persisted model evidence. Real OpenAI credentials were not available, so no paid real-model call was made.
+
+Executed for this update:
+
+| Check | Result |
+| --- | --- |
+| `npm.cmd run build` | Both production frontend bundles pass; console size advisory remains |
+| `npm.cmd test` | 62 tests pass across integration, LLM, and adapter safety suites |
+| `PLAYWRIGHT_CHANNEL=chrome npm.cmd run test:llm-ui` | 2 new isolated UI fixture tests pass, including mobile |
+
+The expanded suite covers exact-candidate acceptance, valid abstention holding deployment, hallucinated mappings, arbitrary code, unsafe arithmetic/retries, redacted input, credential-free admin metadata, model errors/refusals/truncation, bounded response size, real HTTP timeout, visible deterministic fallback, incident deduplication, unsafe price/approval blocking, and refusal to let model agreement override failed workflow checks. Integration tests exchange actual HTTP with a **simulated completion endpoint** and persist results in temporary real MongoDB.
+
+The new browser tests use snapshot fixtures on port 5183. They verify configured-versus-tested status, English/Hinglish incident guidance, passport display, rejected-output messaging, mobile layout, and absence of page errors. They do not send requests to OpenAI or reset the user's running demo. The original end-to-end browser tests above are a prior verification record, not a fresh execution during this update.
+
+Still unverified: live OpenAI credentials/account access, real-model analysis quality, real API latency and cost, actual Ollama interoperability, Docker execution, and physical multi-laptop connectivity. Local frontend/backend changes need a gateway restart to be used by a previously running launcher. See [LLM-GUIDE.md](LLM-GUIDE.md) for activation and truthful presentation guidance.

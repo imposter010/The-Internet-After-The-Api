@@ -87,6 +87,9 @@ services:
       LLM_URL: "${LLM_URL:-}"
       LLM_MODEL: "${LLM_MODEL:-}"
       LLM_API_KEY: "${LLM_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      LLM_ENABLED: "${LLM_ENABLED:-true}"
+      LLM_TIMEOUT_MS: "${LLM_TIMEOUT_MS:-8000}"
     ports:
       - "8000:8000"
     networks:
