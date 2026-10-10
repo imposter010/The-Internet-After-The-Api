@@ -1,0 +1,139 @@
+# Local/LAN development demo. Secrets come from the shell or root .env.
+x-backend: &backend
+  image: api-phoenix-backend:local
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: backend
+    args:
+      VITE_GATEWAY_URL: "${VITE_GATEWAY_URL:-http://localhost:8000}"
+      VITE_DASHBOARD_URL: "${VITE_DASHBOARD_URL:-}"
+      VITE_SHOPFLOW_URL: "${VITE_SHOPFLOW_URL:-}"
+  init: true
+  restart: unless-stopped
+
+x-frontend: &frontend
+  image: api-phoenix-frontend:local
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: frontend
+    args:
+      VITE_GATEWAY_URL: "${VITE_GATEWAY_URL:-http://localhost:8000}"
+      VITE_DASHBOARD_URL: "${VITE_DASHBOARD_URL:-}"
+      VITE_SHOPFLOW_URL: "${VITE_SHOPFLOW_URL:-}"
+  init: true
+  restart: unless-stopped
+  environment:
+    VITE_GATEWAY_URL: "${VITE_GATEWAY_URL:-http://localhost:8000}"
+    VITE_DASHBOARD_URL: "${VITE_DASHBOARD_URL:-}"
+    VITE_SHOPFLOW_URL: "${VITE_SHOPFLOW_URL:-}"
+  networks:
+    - application
+  depends_on:
+    gateway:
+      condition: service_healthy
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - database
+    # No ports: MongoDB is accessible only on the private database network.
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand({ping:1}).ok ? 0 : 1)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 10
+
+  provider:
+    <<: *backend
+    command: ["node", "apps/provider/src/server.js"]
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8001"
+      PROVIDER_ADMIN_TOKEN: "${PROVIDER_ADMIN_TOKEN:?Set PROVIDER_ADMIN_TOKEN (at least 16 characters) in the shell or root .env}"
+      PROVIDER_CONSOLE_ORIGINS: "${PROVIDER_CONSOLE_ORIGINS:-http://localhost:8001,http://127.0.0.1:8001}"
+    ports:
+      - "8001:8001"
+    networks:
+      - application
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8001/health',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  gateway:
+    <<: *backend
+    command: ["node", "apps/gateway/src/server.js"]
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      MONGODB_URI: "mongodb://mongo:27017/api_phoenix"
+      PROVIDER_URL: "${PROVIDER_URL:-http://provider:8001}"
+      GATEWAY_ADMIN_TOKEN: "${GATEWAY_ADMIN_TOKEN:?Set GATEWAY_ADMIN_TOKEN (at least 16 characters) in the shell or root .env}"
+      GATEWAY_DATA_KEY: "${GATEWAY_DATA_KEY:?Set a distinct stable GATEWAY_DATA_KEY in the shell or root .env}"
+      DASHBOARD_ORIGINS: "${DASHBOARD_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}"
+      CLIENT_ORIGINS: "${CLIENT_ORIGINS:-http://localhost:5174,http://127.0.0.1:5174}"
+      UPSTREAM_TIMEOUT_MS: "${UPSTREAM_TIMEOUT_MS:-4000}"
+      REPAIR_DELAY_MS: "${REPAIR_DELAY_MS:-700}"
+      OBSERVATION_TTL_DAYS: "${OBSERVATION_TTL_DAYS:-7}"
+      LLM_URL: "${LLM_URL:-}"
+      LLM_MODEL: "${LLM_MODEL:-}"
+      LLM_API_KEY: "${LLM_API_KEY:-}"
+    ports:
+      - "8000:8000"
+    networks:
+      - application
+      - database
+    depends_on:
+      mongo:
+        condition: service_healthy
+      provider:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8000/health',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+
+  dashboard:
+    <<: *frontend
+    command: ["npm", "run", "dev:dashboard"]
+    ports:
+      - "5173:5173"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+
+  shopflow:
+    <<: *frontend
+    command: ["npm", "run", "dev:client"]
+    ports:
+      - "5174:5174"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5174/',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+
+volumes:
+  mongo-data:
+
+networks:
+  application:
+    driver: bridge
+  database:
+    driver: bridge
+    internal: true

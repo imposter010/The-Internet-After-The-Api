@@ -1,0 +1,12 @@
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { mongoBinary } from './mongo-config.mjs';
+const dbPath = resolve('.cache/mongo-data');
+await mkdir(dbPath, { recursive: true });
+const mongo = await MongoMemoryServer.create({ binary: mongoBinary(), instance: { port: 27017, dbPath, storageEngine: 'wiredTiger', dbName: 'api_phoenix' } });
+console.log(`Real development MongoDB listening at ${mongo.getUri('api_phoenix')}`);
+const stop = async () => { await mongo.stop({ doCleanup: false }); process.exit(0); };
+process.on('SIGINT', stop);
+process.on('SIGTERM', stop);
+await new Promise(() => {});

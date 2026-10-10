@@ -1,0 +1,7 @@
+{
+  "name": "@phoenix/shared",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": { ".": "./src/index.js", "./http": "./src/http.js" },
+  "dependencies": { "zod": "^3.25.76" }
+}

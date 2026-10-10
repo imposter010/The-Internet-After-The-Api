@@ -1,0 +1,11 @@
+import { config } from 'dotenv';
+import { fileURLToPath } from 'node:url';
+import { createProvider } from './app.js';
+config({ path: fileURLToPath(new URL('../.env', import.meta.url)) });
+const port = Number(process.env.PORT || 8001);
+const host = process.env.HOST || '127.0.0.1';
+const origins = (process.env.PROVIDER_CONSOLE_ORIGINS || `http://localhost:${port},http://127.0.0.1:${port}`).split(',').map(s => s.trim());
+const { app } = createProvider({ token: process.env.PROVIDER_ADMIN_TOKEN, origins });
+const server = app.listen(port, host, () => console.log(JSON.stringify({ service: 'provider', url: `http://${host}:${port}`, message: 'Independent upstream listening' })));
+process.on('SIGTERM', () => server.close());
+process.on('SIGINT', () => server.close());

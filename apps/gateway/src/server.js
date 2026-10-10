@@ -1,0 +1,14 @@
+import { config } from 'dotenv';
+import { fileURLToPath } from 'node:url';
+import { createStore } from './store.js';
+import { createGateway } from './app.js';
+config({ path: fileURLToPath(new URL('../.env', import.meta.url)) });
+const token = process.env.GATEWAY_ADMIN_TOKEN;
+if (!token || token.length < 16) throw new Error('Set GATEWAY_ADMIN_TOKEN in apps/gateway/.env to a token of at least 16 characters.');
+const store = await createStore(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/api_phoenix', process.env.GATEWAY_DATA_KEY || token, Number(process.env.OBSERVATION_TTL_DAYS || 7));
+const gateway = createGateway({ store, token, providerUrl: process.env.PROVIDER_URL || 'http://127.0.0.1:8001', dashboardOrigins: (process.env.DASHBOARD_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173').split(',').map(s => s.trim()), clientOrigins: (process.env.CLIENT_ORIGINS || 'http://localhost:5174,http://127.0.0.1:5174').split(',').map(s => s.trim()), timeoutMs: Number(process.env.UPSTREAM_TIMEOUT_MS || 4000), repairDelayMs: Number(process.env.REPAIR_DELAY_MS || 700), llm: { url: process.env.LLM_URL, key: process.env.LLM_API_KEY, model: process.env.LLM_MODEL } });
+const host = process.env.HOST || '127.0.0.1', port = Number(process.env.PORT || 8000);
+gateway.server.listen(port, host, () => console.log(JSON.stringify({ service: 'gateway', url: `http://${host}:${port}`, provider: process.env.PROVIDER_URL || 'http://127.0.0.1:8001', persistence: 'mongodb' })));
+const shutdown = async () => { await gateway.close(); await store.close(); process.exit(0); };
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
