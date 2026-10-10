@@ -32,20 +32,33 @@ Browser verification exercised the provider's scenario controls, the client's st
 
 Dockerfiles and Compose configuration are supplied, but container execution was not tested because Docker is not installed here. Three physical laptops and Wi-Fi connectivity require the [LAN deployment check](LAN.md). Optional LLM requests were not exercised against an external model endpoint without credentials. Checkout is a preview; payments and order processing are outside this demo.
 
-## OpenAI analyst update — 10 October 2026
+## Groq LLM workflow update — 11 October 2026
 
-The OpenAI Docs guidance informed strict structured-output requests, refusal/incomplete-output handling, and the completion-token budget. The previous minimal explanation hook has been replaced with a drift analyst, independent output validation, candidate corroboration/abstention, English/Hinglish guidance, visible fallback status, and persisted model evidence. Real OpenAI credentials were not available, so no paid real-model call was made.
+Official Groq and OpenAI-compatible API documentation informed the strict structured-output request and response validation. Groq's endpoint and `openai/gpt-oss-20b` are now the defaults, with `GROQ_API_KEY` as the only required local LLM setting. The analyst returns minor/major classification, changes, likely effects, English/Hinglish guidance, and exact-candidate corroboration or abstention. Major-change operator decisions are persisted without activating an unsafe adapter. No real Groq credential was available, so no external model call was made.
 
 Executed for this update:
 
 | Check | Result |
 | --- | --- |
 | `npm.cmd run build` | Both production frontend bundles pass; console size advisory remains |
-| `npm.cmd test` | 62 tests pass across integration, LLM, and adapter safety suites |
-| `PLAYWRIGHT_CHANNEL=chrome npm.cmd run test:llm-ui` | 2 new isolated UI fixture tests pass, including mobile |
+| `npm.cmd test` | 64 tests pass across integration, LLM, and adapter safety suites |
+| `PLAYWRIGHT_CHANNEL=chrome npm.cmd run test:llm-ui` | 3 isolated UI fixture tests pass, including mobile and major-change review |
 
-The expanded suite covers exact-candidate acceptance, valid abstention holding deployment, hallucinated mappings, arbitrary code, unsafe arithmetic/retries, redacted input, credential-free admin metadata, model errors/refusals/truncation, bounded response size, real HTTP timeout, visible deterministic fallback, incident deduplication, unsafe price/approval blocking, and refusal to let model agreement override failed workflow checks. Integration tests exchange actual HTTP with a **simulated completion endpoint** and persist results in temporary real MongoDB.
+The expanded suite covers the Groq request shape, strict minor/major output, exact-candidate acceptance, valid abstention holding deployment, hallucinated mappings, arbitrary code, unsafe arithmetic/retries, redacted input, credential-free admin metadata, model errors/refusals/truncation, bounded response size, real HTTP timeout, visible deterministic fallback, incident deduplication, unsafe price blocking, persisted manual review, and refusal to let model agreement override failed workflow checks. Integration tests exchange actual HTTP with a **simulated completion endpoint** and persist results in temporary real MongoDB.
 
-The new browser tests use snapshot fixtures on port 5183. They verify configured-versus-tested status, English/Hinglish incident guidance, passport display, rejected-output messaging, mobile layout, and absence of page errors. They do not send requests to OpenAI or reset the user's running demo. The original end-to-end browser tests above are a prior verification record, not a fresh execution during this update.
+The browser tests use snapshot fixtures on port 5183. They verify configured-versus-tested status, changes/effects and English/Hinglish guidance, passport display, rejected-output messaging, major-change manual decision submission, mobile layout, and absence of page errors. They do not send requests to Groq or reset the user's running demo. The original end-to-end browser tests above are a prior verification record, not a fresh execution during this update.
 
-Still unverified: live OpenAI credentials/account access, real-model analysis quality, real API latency and cost, actual Ollama interoperability, Docker execution, and physical multi-laptop connectivity. Local frontend/backend changes need a gateway restart to be used by a previously running launcher. See [LLM-GUIDE.md](LLM-GUIDE.md) for activation and truthful presentation guidance.
+Still unverified: live Groq credentials/account access, real-model analysis quality, real API latency/quota, optional alternative-provider interoperability, Docker execution, and physical multi-laptop connectivity. Local frontend/backend changes need a gateway restart to be used by a previously running launcher. See [LLM-GUIDE.md](LLM-GUIDE.md) for activation and truthful presentation guidance.
+
+## Dynamic provider lab update - 11 October 2026
+
+The provider now stores editable customer, pricing, and shipping records in runtime state. Its admin preview and public API routes call the same response generator. The UI displays the generated next response, HTTP status, runtime revision, active scenario, and actual request log. New minor demonstrations cover additional field aliases, response wrappers, and bounded rate-limit recovery across all three endpoints; major changes remain manual or blocked.
+
+| Check | Result |
+| --- | --- |
+| `npm.cmd run build` | Both production frontend bundles pass |
+| `npm.cmd test` | 69 tests pass across integration, LLM, and adapter safety suites |
+| `PLAYWRIGHT_CHANNEL=chrome npm.cmd run test:e2e -- --grep "provider control"` | Redesigned provider-to-recovery browser flow passes with no page errors |
+| LAN runtime checks | Dynamic previews, 26 scenarios, MongoDB persistence, and configured Groq provider reported correctly |
+
+The added integration cases prove that an edited record appears in both the admin preview and a real provider HTTP response. The gateway tracks the latest healthy value while retaining ten encrypted fixtures, so a later rename can be proven against current data. Tests also prove automatic recovery for customer email, pricing tax, and shipping carrier renames. A live Groq request was separately completed successfully with the locally configured credential; the key was neither displayed nor committed. That single call verifies connectivity and response handling, not general model quality or quota reliability. Docker and physical multi-laptop execution remain unverified.

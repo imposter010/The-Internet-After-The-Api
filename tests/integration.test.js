@@ -32,6 +32,32 @@ beforeEach(async () => { await gateway.engine.waitForIdle(); await authProvider(
 afterAll(async () => { if (gateway) await gateway.close(); if (providerServer) await new Promise(done => providerServer.close(done)); if (store) await store.close(); if (mongo) await mongo.stop(); });
 
 describe('real distributed repair loop', () => {
+  it('uses editable runtime data for both the provider preview and real HTTP response', async () => {
+    const values = { carrier: 'Orbit Courier', eta_days: 5, destination: 'Jaipur' };
+    const updated = await authProvider().post('/admin/data').set('Authorization', `Bearer ${providerToken}`).send({ endpointId: 'shipping', values }).expect(200);
+    expect(updated.body).toMatchObject({ ok: true, record: values, preview: { status: 200, body: { carrier: 'Orbit Courier', eta_days: 5, destination: 'Jaipur' } } });
+    const live = await authProvider().get(ENDPOINTS.shipping.path).expect(200);
+    expect(live.body).toMatchObject({ carrier: 'Orbit Courier', eta_days: 5, destination: 'Jaipur' });
+    const state = await authProvider().get('/admin/state').set('Authorization', `Bearer ${providerToken}`).expect(200);
+    expect(state.body.revision).toBeGreaterThan(1);
+    expect(state.body.log[0]).toMatchObject({ type: 'request', endpointId: 'shipping', status: 200 });
+    expect(state.body.previews.shipping.body).toMatchObject(live.body);
+  });
+
+  it('learns the latest healthy dynamic value before proving a later field rename', async () => {
+    await warm();
+    const values = { name: 'Aarav Mehta', email: 'aarav@example.com', tier: 'gold' };
+    await authProvider().post('/admin/data').set('Authorization', `Bearer ${providerToken}`).send({ endpointId: 'customer', values }).expect(200);
+    await gatewayGet('customer').expect(200);
+    expect((await gateway.engine.baseline('customer')).body.name).toBe('Aarav Mehta');
+    await scenario('customer', 'rename');
+    await gatewayGet('customer').expect(503);
+    await gateway.engine.waitForIdle();
+    const restored = await gatewayGet('customer').expect(200);
+    expect(restored.body.name).toBe('Aarav Mehta');
+    expect(restored.body._phoenix.adapted).toBe(true);
+  });
+
   it('learns persisted baselines from real HTTP, masks PII, and stores encrypted fixtures', async () => {
     await warm();
     const { body } = await snapshot();
@@ -62,6 +88,21 @@ describe('real distributed repair loop', () => {
     expect(body.metrics.observations).toBeGreaterThan(13);
     const checkout = await authGateway().post('/api/checkout').send({ quantity: 1 }).expect(200);
     expect(checkout.body.preview.total).toBe(942.82);
+  });
+
+  it.each([
+    ['customer', 'rename_email', 'email', 'rahul.sharma@example.com'],
+    ['pricing', 'rename_tax', 'tax_percent', 18],
+    ['shipping', 'rename_carrier', 'carrier', 'Nimbus Express'],
+  ])('repairs an additional minor %s/%s field rename', async (endpointId, changed, restoredField, restoredValue) => {
+    await warm();
+    await scenario(endpointId, changed);
+    await gatewayGet(endpointId).expect(503);
+    await gateway.engine.waitForIdle();
+    const restored = await gatewayGet(endpointId).expect(200);
+    expect(restored.body[restoredField]).toBe(restoredValue);
+    expect(restored.body._phoenix.adapted).toBe(true);
+    expect((await snapshot()).body.passports[0].decision).toBe('activated');
   });
 
   it('proves hours-to-days equivalence with fresh probes before conversion', async () => {
@@ -98,14 +139,30 @@ describe('real distributed repair loop', () => {
     expect(blocked.body.amount).toBeUndefined();
     await authGateway().post('/api/checkout').send({ quantity: 1 }).expect(409);
     await authGateway().post(`/admin/incidents/${blocked.body.incidentId}/approve`).set('Authorization', `Bearer ${gatewayToken}`).send({}).expect(422);
+    const review = await authGateway().post(`/admin/incidents/${blocked.body.incidentId}/decision`).set('Authorization', `Bearer ${gatewayToken}`).send({ decision: 'accept_for_manual_work' }).expect(200);
+    expect(review.body.operatorDecision.effect).toContain('No adapter was activated');
     const { body } = await snapshot();
     expect(body.adapters).toHaveLength(0);
     expect(body.passports[0].decision).toBe('blocked');
     expect(body.incidents).toHaveLength(1);
     expect(body.incidents[0].impactedWorkflows.map(w => w.id)).toContain('checkout');
+    expect(body.incidents[0]).toMatchObject({ status: 'manual_accepted', operatorDecision: { decision: 'accept_for_manual_work' } });
+    expect(body.passports[0].operatorDecision.decision).toBe('accept_for_manual_work');
     await scenario('pricing', 'normal');
     await gatewayGet('pricing').expect(200);
     expect((await snapshot()).body.incidents[0].status).toBe('recovered');
+  });
+
+  it('records rejection of a major provider change without activating an adapter', async () => {
+    await warm(); await scenario('customer', 'remove');
+    const blocked = await gatewayGet('customer').expect(503);
+    await gateway.engine.waitForIdle();
+    const review = await authGateway().post(`/admin/incidents/${blocked.body.incidentId}/decision`).set('Authorization', `Bearer ${gatewayToken}`).send({ decision: 'reject_provider_change' }).expect(200);
+    expect(review.body.operatorDecision.effect).toContain('restore the provider contract');
+    const { body } = await snapshot();
+    expect(body.adapters).toHaveLength(0);
+    expect(body.incidents[0]).toMatchObject({ status: 'change_rejected', operatorDecision: { decision: 'reject_provider_change' } });
+    await authGateway().post(`/admin/incidents/${blocked.body.incidentId}/decision`).set('Authorization', `Bearer ${gatewayToken}`).send({ decision: 'accept_for_manual_work' }).expect(409);
   });
 
   it('rolls back and suppresses automatic redeployment until explicit revalidation', async () => {
@@ -287,7 +344,10 @@ async function withAnalyst(output, callback, status = 200) {
     await new Promise(done => server.close(done));
   }
 }
-const modelAnalysis = context => ({ explanation: 'Observed evidence supports this restricted candidate; live validation is still required.',
+const modelAnalysis = context => ({ classification: context.evidencedCandidate ? 'minor' : 'major',
+  detectedChanges: [context.evidencedCandidate ? 'A compatible field or response behavior changed.' : 'The API behavior changed without a safe automatic mapping.'],
+  likelyEffects: [context.evidencedCandidate ? 'The client can fail until the compatibility adapter passes validation.' : 'Affected workflows remain blocked until a person reviews the change.'],
+  explanation: 'Observed evidence supports this restricted candidate; live validation is still required.',
   hinglishExplanation: 'Observed change ke liye allowed repair mila hai; activate karne se pehle tests zaroori hain.',
   recommendedAction: context.evidencedCandidate ? 'apply_candidate' : 'manual_review', risk: context.evidencedCandidate ? 'low' : 'high',
   adapter: context.evidencedCandidate, verificationNotes: ['Confirm the client contract and checkout requirements.'] });

@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 const modelGuidance = {
-  status: 'completed', provider: 'openai', model: 'simulated-openai-model', latencyMs: 42,
+  status: 'completed', provider: 'groq', model: 'simulated-groq-model', latencyMs: 42,
   analyzedAt: '2026-10-10T12:00:00Z', fallbackUsed: false, candidateAccepted: true,
+  classification: 'minor', detectedChanges: ['name changed to display_name.'], likelyEffects: ['Customer name can disappear in ShopFlow.'],
   explanation: 'A field rename preserves the observed value. Independent validation is required.',
   hinglishExplanation: 'Field ka naam badla hai; value same hai. Tests pass hona zaroori hai.',
   recommendedAction: 'apply_candidate', risk: 'low', adapter: { type: 'alias', source: 'display_name', target: 'name' },
@@ -16,7 +17,7 @@ const fixture = (overrides = {}) => ({ persistence: 'mongodb', aiMode: 'llm-assi
   passports: [{ id: 'pass-ui-fixture', incidentId: incident.id, endpointId: 'customer', createdAt: modelGuidance.analyzedAt,
     decision: 'activated', aiAnalysis: modelGuidance, oldBehavior: incident.oldBehavior, newBehavior: incident.newBehavior,
     tests: [{ name: 'Final deployment probe', passed: true }], rollback: {} }],
-  llm: { configured: true, provider: 'openai', model: 'gpt-4o-mini', status: 'ready' }, ...overrides });
+  llm: { configured: true, provider: 'groq', model: 'openai/gpt-oss-20b', status: 'ready' }, ...overrides });
 
 async function mockSnapshot(page, data) {
   await page.addInitScript(() => sessionStorage.setItem('phoenix.gateway.token', 'ui-fixture-token-not-real'));
@@ -41,14 +42,14 @@ test('shows configuration honestly and renders English/Hinglish analysis in inci
   await page.getByRole('button', { name: 'Close dialog' }).click();
   await page.getByRole('link', { name: 'Repairs & passports' }).click();
   await page.locator('.passport-card').click();
-  await expect(page.getByRole('dialog')).toContainText('simulated-openai-model');
+  await expect(page.getByRole('dialog')).toContainText('simulated-groq-model');
   await expect(page.getByRole('dialog')).toContainText('Final deployment probe');
   expect(errors).toEqual([]);
 });
 
 test('shows rejected-output fallback without fabricated AI text on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const rejected = { status: 'rejected', provider: 'openai', model: 'simulated-openai-model', latencyMs: 10,
+  const rejected = { status: 'rejected', provider: 'groq', model: 'simulated-groq-model', latencyMs: 10,
     analyzedAt: modelGuidance.analyzedAt, fallbackUsed: true, reason: 'unsupported_proposal' };
   await mockSnapshot(page, fixture({ incidents: [{ ...incident, aiAnalysis: rejected }] }));
   await page.getByRole('button', { name: 'Open navigation' }).click();
@@ -59,4 +60,26 @@ test('shows rejected-output fallback without fabricated AI text on mobile', asyn
   await expect(page.getByRole('dialog')).toContainText('no AI explanation is fabricated');
   await expect(page.getByRole('heading', { name: 'Model explanation' })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+});
+
+test('shows major-change effects and records a manual decision without claiming deployment', async ({ page }) => {
+  const majorAnalysis = { ...modelGuidance, candidateAccepted: false, classification: 'major', risk: 'high',
+    recommendedAction: 'manual_review', adapter: null, detectedChanges: ['Price changed from 799 to 79,900.'],
+    likelyEffects: ['Checkout total can be wrong, so checkout remains blocked.'] };
+  const majorIncident = { ...incident, id: 'inc-major-fixture', title: 'Price meaning needs review', endpointId: 'pricing',
+    status: 'awaiting_review', aiAnalysis: majorAnalysis };
+  let submitted;
+  await page.route('**/admin/incidents/inc-major-fixture/decision', async route => {
+    submitted = route.request().postDataJSON();
+    await route.fulfill({ json: { message: 'Major change recorded for manual implementation; no adapter was activated.' } });
+  });
+  await mockSnapshot(page, fixture({ incidents: [majorIncident], passports: [], metrics: { observations: 9, drifts: 1, verifiedRepairs: 0, safetyBlocks: 1, upstreamErrors: 0 } }));
+  await page.getByRole('link', { name: /Drift incidents/ }).click();
+  await page.getByRole('button', { name: /Price meaning needs review/ }).click();
+  await page.getByRole('tab', { name: 'LLM analysis', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Price changed from 799 to 79,900.');
+  await expect(page.getByRole('dialog')).toContainText('Checkout total can be wrong');
+  await page.getByRole('button', { name: 'Accept for manual work' }).click();
+  await expect.poll(() => submitted).toEqual({ decision: 'accept_for_manual_work' });
+  await expect(page.getByRole('status')).toContainText('no adapter was activated');
 });

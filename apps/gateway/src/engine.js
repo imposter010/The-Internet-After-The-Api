@@ -80,7 +80,9 @@ export class PhoenixEngine {
 
   async baseline(endpointId) {
     const record = await this.m.EndpointBaseline.findOne({ endpointId }).lean();
-    return record ? { record, body: this.store.decrypt(record.encryptedFixtures[0]), fixtures: record.encryptedFixtures.map(this.store.decrypt) } : null;
+    if (!record) return null;
+    const fixtures = record.encryptedFixtures.map(this.store.decrypt);
+    return { record, body: fixtures.at(-1), fixtures };
   }
 
   async activeAdapter(endpointId) {
@@ -119,7 +121,7 @@ export class PhoenixEngine {
       const learned = await this.baseline(endpointId);
       let rawDrift = detect(endpointId, learned?.body, result.body, result.status, result.headers);
       if (result.error) rawDrift = { kind: result.error, title: 'Provider response unavailable', summary: result.body.message, evidence: [{ fact: 'transport', value: result.error }], safe: false, adapter: null };
-      const existingIncident = await this.m.DriftIncident.findOne({ endpointId, status: { $in: ['detecting', 'validating', 'blocked', 'awaiting_review', 'resolved', 'rolled_back'] } }).sort({ createdAt: -1 }).lean();
+      const existingIncident = await this.m.DriftIncident.findOne({ endpointId, status: { $in: ['detecting', 'validating', 'blocked', 'awaiting_review', 'manual_accepted', 'change_rejected', 'resolved', 'rolled_back'] } }).sort({ createdAt: -1 }).lean();
       let compatible = result.body;
       let adapted = false;
       if (active && result.status === 200) {
@@ -133,8 +135,8 @@ export class PhoenixEngine {
         if (!learned) {
           await this.m.EndpointBaseline.create({ id: id('base'), endpointId, body: mask(result.body), schema: schemaOf(result.body), encryptedFixtures: [this.store.encrypt(result.body)], samples: 1, learnedAt: new Date() });
           await this.event('api:baseline', endpointId, null, `${ENDPOINTS[endpointId].name} baseline learned`, 'Stored an encrypted known-good fixture and its observed schema.', 'success');
-        } else if (!rawDrift && learned.record.samples < 10) {
-          await this.m.EndpointBaseline.updateOne({ endpointId }, { $inc: { samples: 1 }, $push: { encryptedFixtures: { $each: [this.store.encrypt(result.body)], $slice: -10 } } });
+        } else if (!rawDrift) {
+          await this.m.EndpointBaseline.updateOne({ endpointId }, { $set: { body: mask(result.body), schema: schemaOf(result.body) }, $inc: { samples: 1 }, $push: { encryptedFixtures: { $each: [this.store.encrypt(result.body)], $slice: -10 } } });
         }
         if (existingIncident && !rawDrift && !['rolled_back', 'resolved'].includes(existingIncident.status)) {
           await this.m.DriftIncident.updateOne({ id: existingIncident.id }, { $set: { status: 'recovered', recoveredAt: new Date() } });
@@ -349,6 +351,30 @@ export class PhoenixEngine {
     await this.m.DriftIncident.updateOne({ id: incidentId }, { $set: { status: 'detecting' } });
     this.startRepair(incident, proposal);
     return { status: 202, message: 'Fresh regression validation started.' };
+  }
+
+  async reviewMajor(incidentId, decision) {
+    if (!['accept_for_manual_work', 'reject_provider_change'].includes(decision)) return { status: 400, error: 'invalid_review_decision' };
+    const incident = await this.m.DriftIncident.findOne({ id: incidentId }).lean();
+    if (!incident) return { status: 404, error: 'incident_not_found' };
+    if (incident.safe) return { status: 422, error: 'automatic_candidate_exists', message: 'This incident has a restricted repair candidate; use revalidation instead.' };
+    if (['resolved', 'recovered'].includes(incident.status)) return { status: 409, error: 'incident_not_open' };
+    if (incident.operatorDecision) return { status: 409, error: 'decision_already_recorded', message: 'This major-change decision is already recorded.' };
+    const accepted = decision === 'accept_for_manual_work';
+    const operatorDecision = {
+      decision,
+      at: new Date(),
+      effect: accepted
+        ? 'Major change acknowledged for manual implementation. No adapter was activated and affected traffic remains blocked.'
+        : 'Provider change rejected. No adapter was activated; restore the provider contract before retrying.',
+    };
+    const status = accepted ? 'manual_accepted' : 'change_rejected';
+    await this.m.DriftIncident.updateOne({ id: incidentId }, { $set: { status, operatorDecision } });
+    await this.m.RepairPassport.updateMany({ incidentId }, { $set: { operatorDecision } });
+    await this.event('review:decision', incident.endpointId, incident.id,
+      accepted ? 'Major change accepted for manual work' : 'Major provider change rejected',
+      operatorDecision.effect, accepted ? 'warning' : 'danger');
+    return { status: 200, message: operatorDecision.effect, operatorDecision };
   }
 
   async rollback(adapterId) {

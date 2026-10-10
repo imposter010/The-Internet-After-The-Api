@@ -10,15 +10,18 @@ const incident = {
   evidence: [{ fact: 'value_equality', value: true }], impactedWorkflows: [{ id: 'checkout', name: 'Checkout preview' }],
 };
 const proposal = { adapter };
-const analysis = (overrides = {}) => ({ explanation: 'A field rename preserves the observed value.',
+const analysis = (overrides = {}) => ({ classification: 'minor',
+  detectedChanges: ['name was replaced by display_name.'], likelyEffects: ['The customer view can lose the name field.'],
+  explanation: 'A field rename preserves the observed value.',
   hinglishExplanation: 'Field ka naam badla hai; observed value same hai.', recommendedAction: 'apply_candidate',
   risk: 'low', adapter, verificationNotes: ['Confirm three fresh responses and checkout requirements.'], ...overrides });
 const completion = (content, overrides = {}) => new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(content) }, ...overrides }] }), { headers: { 'content-type': 'application/json' } });
 const analyst = (overrides = {}) => new DriftAnalyst({ url: 'https://api.openai.com/v1/chat/completions', key: 'unit-private-key', model: 'gpt-4o-mini', ...overrides });
 afterEach(() => vi.restoreAllMocks());
 
-describe('OpenAI drift analyst', () => {
+describe('OpenAI-compatible drift analyst', () => {
   it('loads server-side defaults, key aliases, opt-out, and timeout', () => {
+    expect(llmFromEnv({ GROQ_API_KEY: 'groq-private' })).toMatchObject({ key: 'groq-private', model: 'openai/gpt-oss-20b', url: 'https://api.groq.com/openai/v1/chat/completions', timeoutMs: 8000 });
     expect(llmFromEnv({ OPENAI_API_KEY: 'private' })).toMatchObject({ key: 'private', model: 'gpt-4o-mini', url: 'https://api.openai.com/v1/chat/completions', timeoutMs: 8000 });
     expect(llmFromEnv({ OPENAI_API_KEY: 'one', LLM_API_KEY: 'two', LLM_ENABLED: 'false', LLM_TIMEOUT_MS: '1000' })).toMatchObject({ key: 'two', enabled: false, timeoutMs: 1000 });
   });
@@ -28,6 +31,15 @@ describe('OpenAI drift analyst', () => {
     expect((await new DriftAnalyst().analyze(incident, proposal)).status).toBe('disabled');
     expect((await analyst({ enabled: false }).analyze(incident, proposal)).status).toBe('disabled');
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('uses Groq-compatible request options without unsupported storage', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(completion(analysis()));
+    const client = new DriftAnalyst({ url: 'https://api.groq.com/openai/v1/chat/completions', key: 'groq-private', model: 'openai/gpt-oss-20b' });
+    expect(await client.analyze(incident, proposal)).toMatchObject({ status: 'completed', provider: 'groq', classification: 'minor' });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body).toMatchObject({ model: 'openai/gpt-oss-20b', reasoning_effort: 'low', max_completion_tokens: 1500 });
+    expect(body).not.toHaveProperty('store');
   });
 
   it.each(['http://api.openai.com/v1/chat/completions', 'https://user:secret@example.com/chat', 'https://example.com/chat?key=secret', 'file:///tmp/chat'])('refuses an insecure or credential-bearing endpoint %s', async url => {
@@ -61,7 +73,7 @@ describe('OpenAI drift analyst', () => {
   });
 
   it('preserves original type-change schemas even when masking replaces an object with a string', async () => {
-    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(completion(analysis({ recommendedAction: 'manual_review', risk: 'high', adapter: null })));
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(completion(analysis({ classification: 'major', recommendedAction: 'manual_review', risk: 'high', adapter: null })));
     const changed = { ...incident, safe: false, kind: 'type_change',
       oldBehavior: { name: '[REDACTED]' }, newBehavior: { name: '[REDACTED]' },
       oldSchema: { name: 'string' }, newSchema: { name: { first: 'string' } } };

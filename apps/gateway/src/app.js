@@ -35,6 +35,12 @@ export function createGateway({ store, providerUrl, token, dashboardOrigins = ['
     res.json({ ok: true });
   });
   app.post('/admin/incidents/:id/approve', async (req, res) => { const result = await engine.approve(req.params.id); res.status(result.status).json(result); });
+  app.post('/admin/incidents/:id/decision', async (req, res) => {
+    const parsed = z.object({ decision: z.enum(['accept_for_manual_work', 'reject_provider_change']) }).strict().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'invalid_review_decision' });
+    const result = await engine.reviewMajor(req.params.id, parsed.data.decision);
+    res.status(result.status).json(result);
+  });
   app.post('/admin/adapters/:id/rollback', async (req, res) => { const result = await engine.rollback(req.params.id); res.status(result.status).json(result); });
   app.use('/api', corsFor([...clientOrigins, ...dashboardOrigins]));
   for (const endpoint of Object.values(ENDPOINTS)) app.get(endpoint.path, async (req, res) => {

@@ -10,7 +10,7 @@ An API lets one application request information from another. API drift means it
 
 | Interface | Role | Local address |
 | --- | --- | --- |
-| Provider console | Represents the external provider; lets us introduce API changes | http://localhost:8001/provider |
+| Provider API Change Lab | Represents the external provider; edits live data, introduces API changes, previews the next response, and records real requests | http://localhost:8001/provider |
 | Phoenix dashboard | Shows observations, incidents, affected workflows, validation, and repair records | http://localhost:5173 |
 | ShopFlow | Represents the customer application; shows profile, pricing, delivery, and checkout preview | http://localhost:5174 |
 
@@ -64,7 +64,7 @@ ShopFlow polls every three seconds. It can display last-good data marked stale, 
 1. Connect both admin panels before presenting; keep tokens off the projector.
 2. Restore healthy provider behavior and run a probe to establish all three baselines.
 3. Show healthy ShopFlow and its checkout preview.
-4. Apply Rename customer field, run a probe, and show its incident, validation, passport, and recovery.
+4. In the API Change Lab, edit a normal value once to prove that responses are dynamic. Then apply Rename name field, run a probe, and show its incident, LLM guidance, validation, passport, and recovery.
 5. Demonstrate Convert delivery units and Introduce HTTP 429, restoring normal behavior between experiments.
 6. Demonstrate Undocumented price magnitude and show checkout being blocked.
 7. Restore normal behavior and end with a healthy application.
@@ -95,11 +95,11 @@ A repair must pass a restricted-definition check, replay of encrypted known-good
 
 ### 6. Does the project use AI?
 
-The primary detector uses rules and observed evidence. With a server-side OpenAI key, an LLM analyzes masked incidents, explains them in English/Hinglish, and corroborates an existing allowed candidate or recommends review. Valid review can hold deployment, but cannot override independent safety checks. Model outages or invalid output use explicit deterministic fallback. Real-model calls require credentials; local tests use simulated completions. The gateway never executes generated JavaScript. See [LLM-GUIDE.md](LLM-GUIDE.md).
+The primary detector uses rules and observed comparison evidence. With a server-side Groq key, the LLM labels masked incidents minor or major, lists changes and effects, explains them in English/Hinglish, and corroborates an exact allowed candidate or recommends manual review. Minor candidates still need independent safety checks. Major decisions are recorded as accept-for-manual-work or reject-provider-change; neither deploys an unsafe adapter. Model outages or invalid output use explicit deterministic fallback. Real-model calls require credentials; local tests use simulated completions. The gateway never executes generated JavaScript. See [LLM-GUIDE.md](LLM-GUIDE.md).
 
 ### 7. Is this a real working system or just a simulated animation?
 
-The external provider is deliberately simulated, but it runs an actual HTTP server. The gateway makes real requests, MongoDB persists evidence, and the React screens use live backend data. Recorded local verification includes 62 backend/safety tests, the original two browser tests and HTTP demonstration, plus two isolated LLM dashboard fixture tests. These LLM tests do not prove a real OpenAI request. See VERIFIED.md for the test record and limits.
+The external provider is deliberately simulated, but it runs an actual HTTP server. Its editable records and scenarios change runtime state, and its preview uses the same response generator as the public API routes. The gateway makes real requests, MongoDB persists evidence, and the React screens use live backend data. The latest suite has 69 backend/safety tests; the redesigned provider flow also passed its end-to-end Chrome test. A separate live Groq request was verified locally, while automated model tests still use simulated completions for repeatability. See VERIFIED.md for the exact record and limits.
 
 ### 8. What is a Repair Passport, and can a repair be undone?
 

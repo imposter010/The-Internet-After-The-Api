@@ -1,147 +1,109 @@
-# API Phoenix: OpenAI setup and easy Hinglish explanation
+# API Phoenix: Groq LLM setup and easy Hinglish guide
 
-API Phoenix now has an LLM drift analyst. It uses OpenAI Chat Completions with strict structured JSON output, independently validated by Zod. The default model is `gpt-4o-mini`; `LLM_MODEL` can select another compatible model available to your account. This adds explanations, restricted candidate review, English/Hinglish guidance, and operator recommendations. It does not turn the project into an unrestricted code-writing agent.
+API Phoenix is already configured for Groq's free-plan API and the `openai/gpt-oss-20b` model. The model supports strict JSON output. For the normal local demo, no endpoint or model setting is needed: paste one private API key and restart.
 
-The code and simulated-completion tests are implemented. A real OpenAI response still requires your server-side API key, account access, and a gateway restart. Do not say a real model has been demonstrated until an incident records `status: completed` with your configured OpenAI model.
+## One setting only
 
-## 1. Enable OpenAI in easy steps
-
-1. Create an API key using the [OpenAI API dashboard](https://platform.openai.com/api-keys). Use an account/project with API access and configure a suitable spending budget. Keep the key private.
-2. Open `apps/gateway/.env` on the gateway computer. This file is ignored by Git. In this checkout a minimal file has been prepared; in a fresh clone, create it with the following LLM settings. Retain any existing service settings, tokens, and stable encryption key.
-3. Replace only the blank key with your real key:
+1. Create a key at [Groq API Keys](https://console.groq.com/keys).
+2. Open `apps/gateway/.env`.
+3. Paste the key after `=`:
 
 ```dotenv
-OPENAI_API_KEY=your-private-api-key
-LLM_MODEL=gpt-4o-mini
-LLM_ENABLED=true
-LLM_TIMEOUT_MS=8000
+GROQ_API_KEY=your-private-groq-key
 ```
 
-The default endpoint is `https://api.openai.com/v1/chat/completions`. You do not need `LLM_URL` or `LLM_API_KEY` for normal OpenAI setup. If previously configured, those overrides take precedence; clear them if switching back to OpenAI.
-
-Do not put the key in chat, screenshots, admin-token forms, `VITE_*` variables, React code, or committed files. The OpenAI key is different from both project admin tokens. The backend loads it; browsers never need it. Do not blindly copy the entire gateway `.env.example` over existing settings: its explicit MongoDB URI selects an already-running database instead of the launcher's managed MongoDB.
-
-4. Restart the project, keeping the same database and encryption key. For a foreground launcher, Ctrl+C in its terminal, then from the repository root:
+4. Save the file and restart from the repository root:
 
 ```powershell
-# Only needed if this checkout's portable Node is not on PATH:
-$env:PATH = "$((Resolve-Path '.tools/node-v22.20.0-win-x64').Path);$env:PATH"
 npm.cmd run dev
 ```
 
-If Codex previously started it as a hidden background process, ask Codex to restart the local panels after saving the key. Do not launch another copy on occupied ports. For LAN use, retain the LAN `HOST` and allowed-origin settings; see [LAN.md](LAN.md). Adding a key does not require a database reset.
+The `.env` file is ignored by Git. Never put this key in chat, screenshots, React code, an admin-token box, or any `VITE_*` setting. The key stays on the gateway server.
 
-5. Open the dashboard and choose **Settings → LLM drift analyst**. It should show **Configured** and initially **Ready — no model response tested yet**. This checks configuration, not connectivity or billing.
-6. Keep the provider healthy and learn all three baselines with **Run probe** if they do not already exist.
-7. Apply a new provider change, such as customer rename, then refresh ShopFlow or run a probe. Open **Drift incidents → incident → LLM analysis**. Look for **completed**, model name, English explanation, Easy Hinglish, recommendation, and suggested operator checks.
-8. Inspect **Validation** and **Repairs & passports**. A model response is not proof of deployment: check the actual passport decision and executed tests.
-
-Existing incident records and active repairs are not automatically resent to OpenAI. Repeating an already resolved scenario may not call the model. For an existing eligible proposal, **Revalidate & approve** requests a fresh model review and validation, but cannot authorize unsupported changes. A completely fresh gateway reset deletes demo history; only do that intentionally, after restoring the provider and letting jobs finish.
-
-For Docker, put LLM settings in Compose's root `.env` or shell environment instead; the isolated gateway `.env` is not copied into the image. Apply with `docker compose up --build -d`. Do not share expanded Compose configuration containing secrets. Docker execution is not verified here.
-
-## 2. What happens internally?
+The built-in defaults are:
 
 ```text
-Real provider response
-        ↓
-Rule-based detector compares baseline, schema, status and business rules
-        ↓
-Masked incident + evidence + impacted workflows + eligible candidate (or null)
-        ↓
-OpenAI structured analysis
-        ↓
-Zod validation + exact-candidate match / valid abstention
-        ↓
-Independent regression, live-probe and workflow checks
-        ↓
-Persist Repair Passport → activate adapter, or remain blocked
+Endpoint: https://api.groq.com/openai/v1/chat/completions
+Model:    openai/gpt-oss-20b
+Timeout:  8000 ms
 ```
 
-The gateway supplies the model with field structure, masked before/after responses, detector evidence, required client fields, impacted workflows, and the eligible deterministic adapter. It does not send admin tokens, API credentials, the fixture encryption key, or decrypted golden fixtures. Masking is field-based demo protection, not a guarantee that every arbitrary personal value is anonymized. Only send permitted demo data to an external model.
+Groq documents this chat endpoint in its [API reference](https://console.groq.com/docs/api-reference) and lists `openai/gpt-oss-20b` as supporting strict structured output in its [Structured Outputs guide](https://console.groq.com/docs/structured-outputs).
 
-The structured response contains:
+## System kaise kaam karta hai
 
-| Field | Meaning |
-| --- | --- |
-| `explanation` | Plain-English explanation of the observed change |
-| `hinglishExplanation` | Easy Roman-Hindi/Hinglish explanation |
-| `recommendedAction` | Apply candidate, manual review, or restore provider |
-| `risk` | Model-reported low/high/unknown risk, not a calibrated safety guarantee |
-| `adapter` | The exact evidenced candidate, or `null` to abstain |
-| `verificationNotes` | Suggested operator checks, not executed tests |
-
-The output schema limits the adapter to the supplied candidate or null. Server-side validation checks again, because structured JSON is not proof that a repair is correct.
-
-## 3. Example: customer field rename
-
-Healthy response has `name: "Rahul"`; the new response has `display_name: "Rahul"`. The actual response also contains unchanged identity, email, and membership fields.
-
-The deterministic detector confirms exactly one missing and added field, identical observed value/type, and unchanged remaining fields. It supplies this candidate:
-
-```json
-{"type":"alias","source":"display_name","target":"name"}
+```text
+Purana healthy API response save hota hai
+                ↓
+Naya response purane response se compare hota hai
+                ↓
+Rules exact evidence aur possible safe fix nikalte hain
+                ↓
+Masked information LLM ko jaati hai
+                ↓
+LLM: minor/major + kya badla + kya effect hoga
+                ↓
+Minor: exact allowed fix ho toh safety tests
+Major: automatic fix nahi; manual accept/reject
+                ↓
+Har result Repair Passport mein save hota hai
 ```
 
-The LLM may explain: "Field ka naam badla hai, value same hai. Client ko purana name field chahiye, isliye alias candidate relevant hai."
+### Minor change
 
-That is an illustrative explanation, not a recorded real-model response. If the model recommends the exact candidate with low reported risk, the gateway still checks old healthy fixtures, three live responses, business rules, affected workflows, and a final fresh deployment probe. After a passing passport is saved, future provider responses are translated for the client.
+Example: `name` hata aur `display_name` aaya, value aur baaki fields same hain.
 
-Provider code and client source code are not rewritten. The gateway restores compatibility at the boundary.
+- Comparison rules exact equality check karte hain.
+- LLM ise minor bol sakta hai aur sirf diye gaye alias fix ko approve kar sakta hai.
+- Gateway old examples, three live requests, business rules, dependent workflows, aur final request test karta hai.
+- Sab pass hua toh provider ka `display_name` ShopFlow ko `name` ban kar milta hai.
+- LLM koi naya JavaScript code nahi likhta aur tests skip nahi kar sakta.
 
-## 4. What if the model disagrees or fails?
+### Major change
 
-| Result | Gateway behaviour |
-| --- | --- |
-| Valid exact candidate | Add LLM candidate review; all independent safety checks remain mandatory |
-| Valid abstention / operator-review recommendation | Hold the candidate; do not auto-activate |
-| Unsupported adapter, code, invalid JSON, oversized/incomplete output | Reject the output and visibly use deterministic validation fallback |
-| Timeout, refusal, network failure, authentication/rate-limit error | Record unavailability and use deterministic validation fallback |
-| Missing key or `LLM_ENABLED=false` | No model call; run the deterministic demo |
-| Unsafe/unsupported provider change | Remain blocked regardless of model output or outage |
+Example: price `799` se `79,900` ho gaya, email gayab ho gayi, ya field ka meaning clear nahi hai.
 
-For unsafe pricing `799 → 79,900`, the model receives no eligible adapter. It can explain the risk and recommend review, but cannot divide the price by 100 or unblock checkout. Manual approval cannot bypass this restriction.
+- LLM dashboard par **What changed**, **Possible effects**, English explanation aur easy Hinglish dikhata hai.
+- Automatic adapter nahi lagta.
+- Operator **Accept for manual work** ya **Reject provider change** choose kar sakta hai.
+- Accept ka matlab risk ko chupana ya broken traffic allow karna nahi hai. Iska matlab team manual code/contract work karegi; traffic blocked rehta hai.
+- Reject ka matlab provider se old contract restore karvana hai.
+- Decision incident aur Repair Passport mein save hota hai.
 
-The default model timeout is 8 seconds, configurable from 50 to 30,000 ms. Each request has a 1,500 completion-token cap, a 32 KiB context limit, a 64 KiB response limit, and no automatic LLM retries. Repeated matching incidents are deduplicated rather than calling OpenAI on every ShopFlow poll. Explicit revalidation can call it again. These limits do not replace account-level cost controls or a production global rate limiter.
+## Dashboard mein kya dekhna hai
 
-## 5. Where to show judges
+- **Settings → LLM drift analyst:** `Configured`, provider `groq`, model `openai/gpt-oss-20b`.
+- **Drift incidents → LLM analysis:** minor/major, changes, effects, Hinglish explanation and recommendation.
+- **Validation:** actually chale hue safety checks.
+- **Repairs & passports:** final deployment and operator decision.
+- **Activity:** model start/completion/fallback and manual review events.
 
-- **Settings:** model, configuration, latest result; configured does not mean a successful request.
-- **Drift incidents → LLM analysis:** explanation, Hinglish guidance, model recommendation, or explicit fallback reason.
-- **Activity stream:** LLM analysis started/completed/fallback events.
-- **Validation:** executed checks, plus LLM candidate review when a valid analysis exists.
-- **Repair Passport:** recorded model analysis separately from deterministic evidence, tests, decision, and rollback.
+`Configured` sirf key milne ka signal hai. Real connection tab prove hota hai jab a new incident shows `status: completed`.
 
-## 6. Easy Hinglish questions and answers
+## Safety and fallback
 
-**LLM kya hai?** Large Language Model: text ko analyze karke explanation aur recommendations dene wala AI model. Hamara default OpenAI GPT-4o mini hai, jo configuration se change ho sakta hai.
+- Model ko masked incident data milta hai; admin tokens, API key aur encryption key nahi jaate.
+- Model sirf detector ka exact allowlisted candidate return kar sakta hai, ya mana kar sakta hai.
+- Model output Zod aur exact-value checks se dobara validate hota hai.
+- Invalid output, timeout, rate limit or outage clearly recorded hota hai.
+- Supported minor repairs deterministic safety checks ke fallback se continue kar sakte hain.
+- Unsupported or major changes always blocked rehte hain; model failure unhe safe nahi banata.
+- Generated code kabhi execute nahi hota.
 
-**AI exactly kya kar raha hai?** Masked drift evidence aur affected workflows dekhkar English/Hinglish explanation deta hai, allowed candidate ko corroborate karta hai ya human review recommend karta hai.
+OpenAI API use karna ho toh advanced override ab bhi supported hai: `OPENAI_API_KEY` set karo; without a Groq key or explicit `LLM_URL`, gateway OpenAI endpoint and `gpt-4o-mini` choose karega. OpenAI-compatible custom service ke liye `LLM_URL`, `LLM_MODEL`, and `LLM_API_KEY` use karo. Normal Groq setup mein inki zaroorat nahi hai.
 
-**Detection AI karta hai?** Primary detection abhi baseline comparison aur rules se hoti hai. LLM detected incident ko analyze karta hai; arbitrary new drift types ko automatically repair karna implemented nahi hai.
+## Quick troubleshooting
 
-**AI repair deploy karta hai?** Directly nahi. Valid candidate review ke baad gateway independent tests chalata hai. Tests fail hon toh AI ke agree karne par bhi deployment nahi hoti. Valid AI abstention bhi deployment hold kar sakti hai.
+- **Not configured:** `GROQ_API_KEY=` ke baad key blank hai, ya restart nahi hua.
+- **HTTP 401:** key invalid/revoked hai.
+- **HTTP 429:** free quota/rate limit hit hui.
+- **HTTP 400:** configured model/request support check karo.
+- **Timeout:** internet/provider slow ya unavailable hai.
+- **Completed but blocked:** model ne manual review bola ya gateway safety test fail hua.
 
-**AI hallucinate kare toh?** Unknown code, extra fields, changed mapping ya unsafe conversion reject hoti hai. Fallback status visible hota hai; original safe deterministic process hi use hota hai.
+Tests simulated model responses use karte hain; real Groq quality/connectivity API key ke baad hi verify hogi:
 
-**Internet/API fail ho toh?** Supported rule-based repairs validation ke saath work kar sakte hain. Unsupported drift blocked rehti hai. System fake AI explanation nahi dikhata.
-
-**Kya hum model train kar rahe hain?** Nahi. Hum existing model ko inference request bhejte hain. Baseline storage training ya fine-tuning nahi hai; embeddings/vector database/RAG pipeline bhi implemented nahi hai.
-
-**LLM project ko kya extra deta hai?** Operators ko change aur workflow risk samajhne mein help, Hinglish explanations, suggested next actions, additional candidate review, aur inspectable model evidence. Repair coverage aur accuracy automatically improve hone ka measured claim nahi hai.
-
-**Judge-ready answer:** "API Phoenix combines deterministic drift detection with an OpenAI LLM analyst. The model explains incidents and reviews restricted repair candidates; the gateway independently validates them before activation. Unsafe changes stay blocked, and every model result, fallback, and repair decision is inspectable."
-
-## 7. Verification and troubleshooting
-
-Run `npm.cmd test` for backend tests and `npm.cmd run test:llm-ui` for isolated UI fixture tests on port 5183. For installed Chrome, set `$env:PLAYWRIGHT_CHANNEL = 'chrome'` first. These tests use simulated completions and do not make paid OpenAI calls or prove real-model accuracy. See [VERIFIED.md](VERIFIED.md).
-
-- **not configured:** save a nonblank server-side key, check `LLM_ENABLED`, then restart the gateway.
-- **http 401:** check the key/project and any old endpoint/key overrides; never share the key while troubleshooting.
-- **http 429:** check account rate/quota/billing limits; deterministic fallback remains visible.
-- **http 400:** verify model access and support for the configured structured-output request. The app intentionally does not silently retry with a looser output format.
-- **timeout:** check network access; cautiously adjust `LLM_TIMEOUT_MS` if necessary.
-- **completed but blocked:** check valid abstention, regression failures, workflow failures, and the final deployment probe.
-- **no LLM status field:** the gateway may still run its older code; restart it after updating.
-
-Implementation follows the [official OpenAI Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=chat), [Chat Completions reference](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create), and [GPT-4o mini model documentation](https://developers.openai.com/api/docs/models/gpt-4o-mini). Structured output constrains format; application evidence and validation remain the safety authority.
+```powershell
+npm.cmd test
+npm.cmd run build
+```

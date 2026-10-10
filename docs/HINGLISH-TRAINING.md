@@ -56,7 +56,7 @@ Har panel alag viewpoint dikhata hai: Provider console mein API changes introduc
 
 ### 12. Provider console mein hum kya karte hain?
 
-Customer, pricing, ya shipping card par scenario choose karke 'Apply scenario' click karte hain. Jaise customer field rename karna ya pricing ko rate-limit karna. Yeh provider ka behavior badalta hai; gateway ko direct change notification nahi bhejta.
+API Change Lab mein customer, pricing, ya shipping endpoint choose karte hain. Normal values edit karke live response dynamic dikhaya ja sakta hai. Scenario dropdown mein minor aur major changes grouped hain. 'Apply scenario' karne par backend runtime behavior badalta hai, next-response JSON update hota hai, aur actual gateway requests activity table mein aati hain. Gateway ko direct change notification nahi milta; change tab detect hota hai jab real request aati hai.
 
 ### 13. Phoenix dashboard kya dikhata hai?
 
@@ -224,13 +224,13 @@ Provider aur gateway ke separate admin tokens hain; browser admin tokens session
 
 ### 50. Testing hui hai? Proof kya hai?
 
-Latest local verification mein 62 backend/safety tests aur 2 isolated LLM dashboard fixture tests pass hue. Pehle 2 full browser tests aur four-scenario HTTP demo bhi verified hue the. Vitest backend/safety suites aur Playwright browser verification ke liye use hote hain. Backend integration actual HTTP aur actual MongoDB use karti hai, lekin model completions simulated hain, real OpenAI call nahi. Detailed record VERIFIED.md mein hai. Yeh production reliability ya har physical network setup ka proof nahi hai.
+Latest local verification mein 69 backend/safety tests pass hue. Redesigned dynamic provider ka full desktop Chrome flow bhi pass hua; pehle ke mobile test aur 3 isolated LLM dashboard fixture tests alag record mein hain. Backend integration actual HTTP aur actual MongoDB use karti hai. Automated LLM completions repeatable testing ke liye simulated hain, aur configured Groq model ka ek live request bhi separately verify hua. Detailed record VERIFIED.md mein hai. Yeh production reliability ya har physical network setup ka proof nahi hai.
 
 ## Level 6: Advanced judge questions — Questions 51-60
 
 ### 51. Kya yeh AI-based system hai?
 
-Primary detection abhi rules aur observed evidence se hoti hai. LLM ka matlab Large Language Model, ya text analyze/generate karne wala AI model. OpenAI key configure karne par model masked incidents analyze karta hai, English/Hinglish explanation deta hai, aur exact allowed candidate ko corroborate ya review recommend karta hai. Valid review deployment hold kar sakti hai, lekin safety checks bypass nahi kar sakti. Invalid output/outage mein explicit deterministic fallback hota hai; generated JavaScript execute nahi hota. Local simulated-completion tests verified hain, real OpenAI call key ke bina verified nahi hai. Setup aur extra Q&A ke liye [LLM-GUIDE.md](LLM-GUIDE.md) dekho.
+Primary detection rules aur observed comparison se hoti hai. Groq key configure karne par LLM masked incident ko minor/major classify karta hai, exact changes aur effects dikhata hai, English/Hinglish explanation deta hai, aur exact allowed candidate ko support ya manual review recommend karta hai. Minor fix ko independent tests pass karne padte hain. Major change par accept-for-manual-work/reject decision record hota hai, lekin unsafe adapter deploy nahi hota. Invalid output/outage mein explicit deterministic fallback hota hai; generated JavaScript execute nahi hota. Repeatable automated tests simulated completions use karte hain, aur configured Groq model ka live connection bhi separately verify hua hai. Setup ke liye [LLM-GUIDE.md](LLM-GUIDE.md) dekho.
 
 ### 52. Project ka distinctive contribution kya hai?
 
