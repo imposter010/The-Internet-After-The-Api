@@ -57,8 +57,10 @@ The provider now stores editable customer, pricing, and shipping records in runt
 | Check | Result |
 | --- | --- |
 | `npm.cmd run build` | Both production frontend bundles pass |
-| `npm.cmd test` | 69 tests pass across integration, LLM, and adapter safety suites |
+| `npm.cmd test` | 73 tests pass across integration, LLM, and adapter safety suites |
 | `PLAYWRIGHT_CHANNEL=chrome npm.cmd run test:e2e -- --grep "provider control"` | Redesigned provider-to-recovery browser flow passes with no page errors |
 | LAN runtime checks | Dynamic previews, 26 scenarios, MongoDB persistence, and configured Groq provider reported correctly |
 
-The added integration cases prove that an edited record appears in both the admin preview and a real provider HTTP response. The gateway tracks the latest healthy value while retaining ten encrypted fixtures, so a later rename can be proven against current data. Tests also prove automatic recovery for customer email, pricing tax, and shipping carrier renames. A live Groq request was separately completed successfully with the locally configured credential; the key was neither displayed nor committed. That single call verifies connectivity and response handling, not general model quality or quota reliability. Docker and physical multi-laptop execution remain unverified.
+The added integration cases prove that an edited record appears in both the admin preview and a real provider HTTP response. The gateway tracks the latest healthy value while retaining ten encrypted fixtures. Approved endpoint-specific aliases also remain eligible when unrelated ordinary data changed before observation, while residual contract and business-risk checks still block simultaneous unsafe changes. Every provider scenario labelled repairable is covered by a detector safety test.
+
+Live Groq checks with the locally configured credential produced `minor / low / apply_candidate` for `tier -> membership_tier`, activated its validated adapter, and restored the final request to HTTP 200. A separate 100x pricing check produced `major / high / manual_review`, kept its passport blocked, and activated no pricing adapter. The key was neither displayed nor committed. These calls verify current connectivity and decision handling, not general model quality or quota reliability. Docker and physical multi-laptop execution remain unverified.

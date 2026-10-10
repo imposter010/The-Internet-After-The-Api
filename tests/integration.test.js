@@ -58,6 +58,20 @@ describe('real distributed repair loop', () => {
     expect(restored.body._phoenix.adapted).toBe(true);
   });
 
+  it('repairs an approved minor rename even when an unrelated normal value changed before the gateway observed it', async () => {
+    await warm();
+    const values = { name: 'Rahul Sharma', email: 'updated@example.com', tier: 'gold' };
+    await authProvider().post('/admin/data').set('Authorization', `Bearer ${providerToken}`).send({ endpointId: 'customer', values }).expect(200);
+    await scenario('customer', 'rename_tier');
+    await gatewayGet('customer').expect(503);
+    await gateway.engine.waitForIdle();
+    const restored = await gatewayGet('customer').expect(200);
+    expect(restored.body).toMatchObject({ email: 'updated@example.com', tier: 'gold', _phoenix: { adapted: true } });
+    const { body } = await snapshot();
+    expect(body.incidents[0]).toMatchObject({ kind: 'field_alias', safe: true, status: 'resolved' });
+    expect(body.passports[0].decision).toBe('activated');
+  });
+
   it('learns persisted baselines from real HTTP, masks PII, and stores encrypted fixtures', async () => {
     await warm();
     const { body } = await snapshot();

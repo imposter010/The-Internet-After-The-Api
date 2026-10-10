@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ADAPTER_SCHEMA, mask } from '@phoenix/shared';
 import { transform, retryDelay } from '../apps/gateway/src/adapters.js';
 import { detect } from '../apps/gateway/src/detection.js';
+import { SCENARIOS, renderProviderResponse } from '../apps/provider/src/app.js';
 
 describe('adapter safety boundaries', () => {
   it('rejects code, pollution keys, arbitrary price arithmetic, and expanded retry policies', () => {
@@ -14,6 +15,35 @@ describe('adapter safety boundaries', () => {
   it('does not guess a conversion from changed values alone', () => {
     expect(detect('shipping', { eta_days: 3, carrier: 'X' }, { eta_hours: 70, carrier: 'X' }, 200).safe).toBe(false);
     expect(detect('customer', { name: 'A', id: '1' }, { display_name: 'B', id: '1' }, 200).safe).toBe(false);
+  });
+  it('accepts approved aliases when ordinary data changed but contract and business checks still pass', () => {
+    const baseline = { id: 'cust_rahul', name: 'Rahul Sharma', email: 'rahul@example.com', tier: 'gold' };
+    const current = { id: 'cust_rahul', name: 'Rahul Sharma', email: 'new@example.com', membership_tier: 'gold' };
+    expect(detect('customer', baseline, current, 200)).toMatchObject({ kind: 'field_alias', safe: true, adapter: { type: 'alias', source: 'membership_tier', target: 'tier' } });
+  });
+  it('blocks an approved alias when a simultaneous business-risk change remains', () => {
+    const baseline = { product_id: 'phoenix-pro', product_name: 'Headphones', amount: 799, currency: 'INR', unit: 'rupees', tax_percent: 18 };
+    const current = { product_id: 'phoenix-pro', product_name: 'Headphones', amount: 79900, currency: 'INR', unit: 'rupees', tax_rate_percent: 18 };
+    expect(detect('pricing', baseline, current, 200)).toMatchObject({ kind: 'semantic_price', safe: false });
+  });
+  it('recognizes every provider scenario labelled repairable as an automatic candidate', () => {
+    const baselines = {
+      customer: { id: 'cust_rahul', name: 'Rahul Sharma', email: 'rahul@example.com', tier: 'gold' },
+      pricing: { product_id: 'phoenix-pro', product_name: 'Headphones', amount: 799, currency: 'INR', unit: 'rupees', tax_percent: 18 },
+      shipping: { order_id: 'demo-order', carrier: 'Nimbus Express', eta_days: 3, destination: 'Bengaluru' },
+    };
+    const dynamic = {
+      customer: { ...baselines.customer, name: 'Aarav Mehta', email: 'aarav@example.com' },
+      pricing: { ...baselines.pricing, product_name: 'Headphones Plus', amount: 899 },
+      shipping: { ...baselines.shipping, carrier: 'Orbit Courier', eta_days: 5, destination: 'Jaipur' },
+    };
+    for (const item of SCENARIOS.filter(candidate => candidate.safety === 'repairable')) {
+      const rendered = renderProviderResponse(item.endpointId, item.id, dynamic[item.endpointId], 1);
+      const headers = Object.fromEntries(Object.entries(rendered.headers).map(([key, value]) => [key.toLowerCase(), value]));
+      const change = detect(item.endpointId, baselines[item.endpointId], rendered.body, rendered.status, headers);
+      expect(change, `${item.endpointId}/${item.id}`).toMatchObject({ safe: true });
+      expect(change.adapter, `${item.endpointId}/${item.id}`).toBeTruthy();
+    }
   });
   it.each([['customer', 'id'], ['pricing', 'product_id'], ['shipping', 'order_id']])('preserves %s response identity', (endpointId, field) => {
     const change = detect(endpointId, { [field]: 'original' }, { [field]: 'different' }, 200);

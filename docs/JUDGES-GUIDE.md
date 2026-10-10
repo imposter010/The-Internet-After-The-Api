@@ -99,7 +99,7 @@ The primary detector uses rules and observed comparison evidence. With a server-
 
 ### 7. Is this a real working system or just a simulated animation?
 
-The external provider is deliberately simulated, but it runs an actual HTTP server. Its editable records and scenarios change runtime state, and its preview uses the same response generator as the public API routes. The gateway makes real requests, MongoDB persists evidence, and the React screens use live backend data. The latest suite has 69 backend/safety tests; the redesigned provider flow also passed its end-to-end Chrome test. A separate live Groq request was verified locally, while automated model tests still use simulated completions for repeatability. See VERIFIED.md for the exact record and limits.
+The external provider is deliberately simulated, but it runs an actual HTTP server. Its editable records and scenarios change runtime state, and its preview uses the same response generator as the public API routes. The gateway makes real requests, MongoDB persists evidence, and the React screens use live backend data. The latest suite has 73 backend/safety tests; the redesigned provider flow also passed its end-to-end Chrome test. Separate live Groq checks verified both minor automatic repair and major manual review, while automated model tests still use simulated completions for repeatability. See VERIFIED.md for the exact record and limits.
 
 ### 8. What is a Repair Passport, and can a repair be undone?
 

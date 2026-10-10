@@ -242,10 +242,10 @@ export class PhoenixEngine {
       assert(probes.length === 3, 'Three valid probes are required.');
       for (const probe of probes) {
         if (definition.type === 'unit') {
-          assert(probe.raw[definition.source] === baseline.body[definition.target] * 24, 'Hours-to-days equivalence was not demonstrated.');
+          assert(probe.raw[definition.source] / definition.divisor === probe.compatible[definition.target], 'Hours-to-days equivalence was not demonstrated.');
           assert(probe.compatible.eta_days >= 0 && probe.compatible.eta_days <= 60, 'Delivery estimate is outside its safe range.');
         }
-        if (definition.type === 'alias') assert(same(probe.raw[definition.source], baseline.body[definition.target]), 'Renamed field does not preserve the observed golden value.');
+        if (definition.type === 'alias') assert(same(probe.raw[definition.source], probe.compatible[definition.target]), 'Alias does not preserve the current upstream value.');
         if (endpointId === 'pricing') assert(probe.compatible.amount === baseline.body.amount && probe.compatible.currency === baseline.body.currency, 'A retry cannot change price meaning.');
         if (definition.type === 'normalize') assert(probe.raw.data?.length === 1 && probe.raw.pagination?.total === 1, 'Response normalization would drop additional records.');
       }
