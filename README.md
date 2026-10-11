@@ -16,6 +16,8 @@ For three separate Windows laptops, follow [docs/LAN.md](docs/LAN.md). The Docke
 
 See [docs/VERIFIED.md](docs/VERIFIED.md) for the executed checks, tested repair behavior, and remaining verification limits.
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the provider, gateway, LLM analysis, validation, persistence, and client data flow.
+
 ## Local quick start
 
 Install Node.js **22.12 or newer** (Node 22 is used by Docker), with npm on `PATH`. Run these commands in PowerShell from the repository root:
