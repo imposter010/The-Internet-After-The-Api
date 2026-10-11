@@ -5,7 +5,8 @@ export const ENDPOINTS = [
   { id: 'pricing', label: 'Pricing', path: '/api/pricing/phoenix-pro' },
   { id: 'shipping', label: 'Shipping', path: '/api/shipping/phoenix-pro' },
 ];
-const defaultUrl = import.meta.env.VITE_GATEWAY_URL || `http://${window.location.hostname || 'localhost'}:8000`;
+const hostedShopFlow = window.location.hostname === 'the-internet-after-the-api.onrender.com';
+const defaultUrl = import.meta.env.VITE_GATEWAY_URL || (hostedShopFlow ? 'https://phoenix-gateway.onrender.com' : `http://${window.location.hostname || 'localhost'}:8000`);
 const blank = () => Object.fromEntries(ENDPOINTS.map((endpoint) => [endpoint.id, { status: 'loading', data: null, metadata: null, error: '', httpStatus: null, checkedAt: null, goodAt: null }]));
 
 export function useGatewayUrl() {

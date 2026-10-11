@@ -297,6 +297,18 @@ describe('authentication, isolation, and live synchronization', () => {
     await authGateway().get('/api/customer/rahul').set('Origin', 'https://untrusted.example').expect(403);
   });
 
+  it('allows the provider console to call its own admin API behind an HTTPS proxy', async () => {
+    const origin = 'https://phoenix-provider.example';
+    const response = await authProvider().options('/admin/state')
+      .set('Host', 'phoenix-provider.example')
+      .set('X-Forwarded-Proto', 'https')
+      .set('Origin', origin)
+      .set('Access-Control-Request-Method', 'GET')
+      .set('Access-Control-Request-Headers', 'authorization')
+      .expect(204);
+    expect(response.headers['access-control-allow-origin']).toBe(origin);
+  });
+
   it('returns persisted data to a reconnected Socket.IO operator', async () => {
     await warm();
     const url = `http://127.0.0.1:${gateway.server.address().port}`;

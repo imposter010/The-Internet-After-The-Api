@@ -88,7 +88,7 @@ export function renderProviderResponse(endpointId, scenarioId, record, requestNu
   return { status, headers, body, raw };
 }
 
-export function createProvider({ token, origins = ['http://localhost:8001', 'http://127.0.0.1:8001'] } = {}) {
+export function createProvider({ token, origins = ['http://localhost:8001', 'http://127.0.0.1:8001'], connectOrigins = origins } = {}) {
   const app = express();
   const state = {
     active: { customer: 'normal', pricing: 'normal', shipping: 'normal' },
@@ -103,10 +103,10 @@ export function createProvider({ token, origins = ['http://localhost:8001', 'htt
   }));
 
   app.disable('x-powered-by');
-  app.use(helmet({ contentSecurityPolicy: { directives: { 'connect-src': ["'self'", ...origins], 'script-src': ["'self'"], 'img-src': ["'self'", 'data:'], 'style-src': ["'self'", "'unsafe-inline'"], 'upgrade-insecure-requests': null } } }));
+  app.use(helmet({ contentSecurityPolicy: { directives: { 'connect-src': ["'self'", ...new Set(connectOrigins)], 'script-src': ["'self'"], 'img-src': ["'self'", 'data:'], 'style-src': ["'self'", "'unsafe-inline'"], 'upgrade-insecure-requests': null } } }));
   app.use(express.json({ limit: '16kb' }));
   app.get('/health', (req, res) => res.json({ status: 'ok', service: 'external-provider', revision: state.revision }));
-  app.use('/admin', corsFor(origins), requireToken(token));
+  app.use('/admin', corsFor(origins, { allowSameOrigin: true }), requireToken(token));
   app.get('/admin/state', (req, res) => res.json({ ...state, previews: previews(), scenarios: SCENARIOS }));
   app.post('/admin/scenario', (req, res) => {
     const parsed = z.object({ endpointId: z.enum(['customer', 'pricing', 'shipping']), scenario: z.string() }).strict().safeParse(req.body);

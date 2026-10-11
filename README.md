@@ -58,7 +58,7 @@ $devSecrets.providerToken
 $devSecrets.gatewayToken
 ```
 
-These are local generated credentials; do not share the file or commit it. If you configured service tokens yourself, use those values instead. The admin UIs retain tokens in browser **session storage**, while connection URLs may be retained in local storage. ShopFlow needs no admin token. Never put admin tokens, the data key, or LLM credentials in a `VITE_*` variable.
+These are local generated credentials; do not share the file or commit it. If you configured service tokens yourself, use those values instead. The admin UIs retain tokens in browser **session storage** by default; the explicit “Remember token” option uses local storage on a trusted demo device. Connection URLs may also be retained in local storage. ShopFlow needs no admin token. Never put admin tokens, the data key, or LLM credentials in a `VITE_*` variable.
 
 Keep all provider scenarios healthy initially. The provider's **API Change Lab** shows the next generated HTTP response, lets you edit safe demo values at runtime, groups minor and major changes, and records actual provider requests. Save a value or apply a scenario, then use the dashboard's **Run probe** action or refresh ShopFlow; the provider does not secretly notify Phoenix. Learn healthy customer, pricing, and shipping baselines before introducing drift because repairs validate all dependent workflows.
 
@@ -87,6 +87,7 @@ The isolated backend scripts load their own workspace `.env`; shell values take 
 | `HOST`, `PORT` | Provider / gateway | Isolated server bind address and port; use `HOST=0.0.0.0` for LAN access |
 | `PROVIDER_ADMIN_TOKEN` | Provider | Admin bearer token, at least 16 characters |
 | `PROVIDER_CONSOLE_ORIGINS` | Provider | Comma-separated origins permitted for its admin UI |
+| `PROVIDER_CONNECT_ORIGINS` | Provider | Browser destinations allowed by the provider-served console CSP; include the public gateway URL |
 | `MONGODB_URI` | Gateway | Real MongoDB connection URI |
 | `PROVIDER_URL` | Gateway | Upstream origin reached by the gateway server |
 | `GATEWAY_ADMIN_TOKEN` | Gateway | A separate admin bearer token, at least 16 characters |

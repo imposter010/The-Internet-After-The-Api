@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 
-const fallbackGateway = `http://${window.location.hostname || 'localhost'}:8000`;
+const hostedPhoenix = window.location.hostname === 'phoenix-provider-dlyk.onrender.com';
+export const providerPage = window.location.port === '8001' || /^\/provider(?:\/|$)/.test(window.location.pathname);
+const fallbackGateway = hostedPhoenix ? 'https://phoenix-gateway.onrender.com' : `http://${window.location.hostname || 'localhost'}:8000`;
 export const defaultGateway = import.meta.env.VITE_GATEWAY_URL || fallbackGateway;
-export const defaultProvider = window.location.port === '8001'
+export const defaultProvider = providerPage
   ? window.location.origin : `http://${window.location.hostname || 'localhost'}:8001`;
+export const dashboardUrl = import.meta.env.VITE_DASHBOARD_URL || (hostedPhoenix ? window.location.origin : window.location.port === '8001' ? `http://${window.location.hostname}:5173` : '/');
+export const shopflowUrl = import.meta.env.VITE_SHOPFLOW_URL || (hostedPhoenix ? 'https://the-internet-after-the-api.onrender.com' : `http://${window.location.hostname}:5174`);
 
 export function stored(storage, key, fallback = '') {
   try { return storage.getItem(key) || fallback; } catch { return fallback; }
@@ -25,16 +29,22 @@ export function normalizeUrl(value) {
 export function useConnection(kind) {
   const isProvider = kind === 'provider';
   const key = `phoenix.${kind}`;
-  const [connection, setConnection] = useState(() => ({
-    url: isProvider && window.location.port === '8001' ? window.location.origin
-      : stored(window.localStorage, `${key}.url`, isProvider ? defaultProvider : defaultGateway),
-    token: stored(window.sessionStorage, `${key}.token`),
-  }));
-  const configure = useCallback(({ url, token }) => {
-    const normalized = isProvider && window.location.port === '8001' ? window.location.origin : normalizeUrl(url);
+  const [connection, setConnection] = useState(() => {
+    const persistentToken = stored(window.localStorage, `${key}.token`);
+    return {
+      url: isProvider && providerPage ? window.location.origin
+        : stored(window.localStorage, `${key}.url`, isProvider ? defaultProvider : defaultGateway),
+      token: stored(window.sessionStorage, `${key}.token`, persistentToken),
+      remember: !!persistentToken || hostedPhoenix,
+    };
+  });
+  const configure = useCallback(({ url, token, remember = false }) => {
+    const normalized = isProvider && providerPage ? window.location.origin : normalizeUrl(url);
+    const cleanToken = token.trim();
     save(window.localStorage, `${key}.url`, normalized);
-    save(window.sessionStorage, `${key}.token`, token.trim());
-    setConnection({ url: normalized, token: token.trim() });
+    save(window.localStorage, `${key}.token`, remember ? cleanToken : '');
+    save(window.sessionStorage, `${key}.token`, remember ? '' : cleanToken);
+    setConnection({ url: normalized, token: cleanToken, remember });
   }, [isProvider, key]);
   return [connection, configure];
 }

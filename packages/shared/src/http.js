@@ -20,7 +20,26 @@ export function allowOrigins(origins) {
   };
 }
 
-export function corsFor(origins) { return cors({ origin: allowOrigins(origins), methods: ['GET', 'POST', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'], exposedHeaders: ['Retry-After'] }); }
+function requestOrigin(req) {
+  const forwarded = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const protocol = forwarded || req.protocol;
+  const host = req.get('host');
+  return host ? `${protocol}://${host}` : '';
+}
+
+export function corsFor(origins, { allowSameOrigin = false } = {}) {
+  return cors((req, callback) => {
+    const allowed = origins.filter(Boolean);
+    const origin = req.headers.origin;
+    if (allowSameOrigin && origin && origin === requestOrigin(req)) allowed.push(origin);
+    callback(null, {
+      origin: allowOrigins([...new Set(allowed)]),
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+      exposedHeaders: ['Retry-After'],
+    });
+  });
+}
 export function errors(err, req, res, next) {
   console.error(JSON.stringify({ level: 'error', method: req.method, path: req.path, message: err.message }));
   if (res.headersSent) return next(err);

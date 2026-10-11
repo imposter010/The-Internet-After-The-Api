@@ -39,18 +39,20 @@ export function Modal({ title, children, onClose, wide = false }) {
 export function ConnectionForm({ connection, configure, label = 'Gateway', sameOrigin = false, onDone }) {
   const [url, setUrl] = useState(connection.url);
   const [token, setToken] = useState(connection.token);
+  const [remember, setRemember] = useState(connection.remember ?? false);
   const [reveal, setReveal] = useState(false);
   const [error, setError] = useState('');
   return <form className="connection-form" onSubmit={(event) => {
     event.preventDefault();
-    try { configure({ url, token }); setError(''); onDone?.(); } catch (err) { setError(err.message); }
+    try { configure({ url, token, remember }); setError(''); onDone?.(); } catch (err) { setError(err.message); }
   }}><div className="connection-explainer"><PlugZap size={23} /><p>Connect to your {label.toLowerCase()} on this computer or another device on your LAN.</p></div>
     <label>{label} URL<div className="input-icon"><Link2 size={16} /><input required type="url" value={url} disabled={sameOrigin} onChange={(event) => setUrl(event.target.value)} placeholder="http://192.168.1.20:8000" spellCheck={false} /></div></label>
     {sameOrigin && <p className="form-hint">This provider console uses the server that served this page.</p>}
     <label>Administration token<div className="input-icon"><input type={reveal ? 'text' : 'password'} value={token} onChange={(event) => setToken(event.target.value)} placeholder="Enter your admin token" autoComplete="off" spellCheck={false} /><button className="icon-button" type="button" onClick={() => setReveal(!reveal)} aria-label={reveal ? 'Hide token' : 'Show token'}>{reveal ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
-    <p className="form-hint">The URL is saved on this device. Your token stays in session storage for this tab and is sent only to the configured server.</p>
+    <label className="connection-remember"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /><span>Remember token on this trusted device</span></label>
+    <p className="form-hint">The URL is saved on this device. A remembered token stays only in this browser and is sent only to the configured server. Never enable this on a shared device.</p>
     {error && <div className="notice notice-error" role="alert">{error}</div>}
-    <div className="form-actions"><Button type="submit" className="button-primary"><Check size={16} />Save connection</Button>{connection.token && <Button type="button" onClick={() => { configure({ url, token: '' }); setToken(''); onDone?.(); }}>Clear token</Button>}</div>
+    <div className="form-actions"><Button type="submit" className="button-primary"><Check size={16} />Save connection</Button>{connection.token && <Button type="button" onClick={() => { configure({ url, token: '', remember: false }); setToken(''); setRemember(false); onDone?.(); }}>Clear token</Button>}</div>
   </form>;
 }
 

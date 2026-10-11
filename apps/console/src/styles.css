@@ -204,6 +204,9 @@ tbody tr:hover { background: #202426; }
 .connection-explainer { display: flex; align-items: center; gap: 15px; color: #b1bbc3; font-size: 12px; line-height: 1.6; }
 .connection-explainer svg { color: var(--orange); flex-shrink: 0; }
 .form-hint { font-size: 10px; line-height: 1.8; color: #7d8b96; margin-top: 12px; }
+.connection-form .connection-remember { display: flex; align-items: center; gap: 9px; margin: 15px 0 0; cursor: pointer; }
+.connection-form .connection-remember input { width: 15px; height: 15px; margin: 0; padding: 0; accent-color: #f5945f; }
+.connection-form .connection-remember span { font-size: 10px; color: #aab5bd; }
 .form-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 25px; }
 .settings-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
 .settings-layout .connection-form { padding: 0 21px 25px; }

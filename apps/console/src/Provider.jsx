@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Activity, ArrowRight, Braces, Check, ChevronDown, CircleDot, Database, ExternalLink, FlaskConical, KeyRound, RefreshCw, RotateCcw, Save, Server, Settings2, ShieldAlert, Sparkles, TerminalSquare, Undo2, X } from 'lucide-react';
-import { useAdminFeed, useConnection } from './api.js';
+import { dashboardUrl, providerPage, shopflowUrl, useAdminFeed, useConnection } from './api.js';
 import { Badge, Button, ConnectionForm, humanTime, JsonView, Modal, number, readable } from './components.jsx';
 
 const endpoints = [
@@ -83,8 +83,6 @@ export default function Provider() {
   const [notice, setNotice] = useState(null);
   const [selectedLog, setSelectedLog] = useState(null);
   const endpoint = endpoints.find(item => item.id === endpointId);
-  const dashboardUrl = import.meta.env.VITE_DASHBOARD_URL || (window.location.port === '8001' ? `http://${window.location.hostname}:5173` : '/');
-  const shopflowUrl = import.meta.env.VITE_SHOPFLOW_URL || `http://${window.location.hostname}:5174`;
   const run = async (key, path, body, message) => {
     setPending(key); setNotice(null);
     try { await feed.mutate(path, body); setNotice({ type: 'success', message }); setShowReset(false); }
@@ -117,7 +115,7 @@ export default function Provider() {
     </main>
     <footer className="lab-footer"><span>Independent upstream simulation</span><span>API Phoenix demo environment</span><span>{feed.data?.lastChange?.message || 'No runtime change recorded'}</span></footer>
 
-    {showConnection && <Modal title="Provider connection" onClose={() => setShowConnection(false)}><ConnectionForm connection={connection} configure={configure} label="Provider" sameOrigin={window.location.port === '8001'} onDone={() => setShowConnection(false)} /></Modal>}
+    {showConnection && <Modal title="Provider connection" onClose={() => setShowConnection(false)}><ConnectionForm connection={connection} configure={configure} label="Provider" sameOrigin={providerPage} onDone={() => setShowConnection(false)} /></Modal>}
     {showReset && <Modal title="Reset the API Change Lab?" onClose={() => setShowReset(false)}><p className="detail-summary">This restores all scenarios and editable provider values. Phoenix incident history is kept separately.</p><div className="form-actions"><Button className="button-primary" loading={pending === 'reset'} onClick={() => run('reset', '/admin/reset', undefined, 'Provider scenarios and live data restored to defaults.')}><RotateCcw size={15} />Reset provider</Button><Button onClick={() => setShowReset(false)}>Cancel</Button></div></Modal>}
     {selectedLog && <Modal title="Server evidence" onClose={() => setSelectedLog(null)} wide><JsonView value={selectedLog} label="Recorded by the provider backend" /></Modal>}
   </div>;
