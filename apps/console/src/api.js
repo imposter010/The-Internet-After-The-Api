@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 
-const hostedPhoenix = window.location.hostname === 'phoenix-provider-dlyk.onrender.com';
+const hostedPhoenix = window.location.hostname.endsWith('.onrender.com');
 export const providerPage = window.location.port === '8001' || /^\/provider(?:\/|$)/.test(window.location.pathname);
 const fallbackGateway = hostedPhoenix ? 'https://phoenix-gateway.onrender.com' : `http://${window.location.hostname || 'localhost'}:8000`;
 export const defaultGateway = import.meta.env.VITE_GATEWAY_URL || fallbackGateway;
