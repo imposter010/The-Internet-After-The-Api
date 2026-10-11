@@ -20,6 +20,7 @@ function Connection({ url, configure, close }) {
   const [value, setValue] = useState(url);
   const [error, setError] = useState('');
   return <Modal title="Gateway connection" onClose={close}><div className="connection-intro"><Link2 size={23} /><p>Use your API Phoenix gateway URL, including its port, on this device or another computer on your LAN.</p></div><form onSubmit={(event) => { event.preventDefault(); try { configure(value); close(); } catch (err) { setError(err.message); } }}><label className="field-label">Gateway URL<input required type="url" value={value} onChange={(event) => setValue(event.target.value)} placeholder="http://192.168.1.20:8000" spellCheck={false} /></label><p className="connection-hint">Saved on this device. ShopFlow uses the gateway’s public customer, pricing, shipping, and checkout APIs.</p>{error && <p className="form-error" role="alert">{error}</p>}<button className="shop-button" type="submit"><Check size={17} />Save connection</button></form></Modal>;
+
 }
 
 function EndpointCard({ endpoint, definition, icon: Icon, children }) {
